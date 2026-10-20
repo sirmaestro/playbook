@@ -217,7 +217,7 @@ class SettingsService._() {
   static void updateThemeMode(ThemeMode theme) {
     WinRegistryService.writeRegistryValue(
       LOCAL_MACHINE,
-      r'SOFTWARE\Revision\Revision Tool',
+      r'SOFTWARE\WinDebloat\WinDebloat Tool',
       'ThemeMode',
       theme.name,
     );

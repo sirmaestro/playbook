@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../utils.dart';
+import '../network/network_endpoints.dart';
 
 class const ToolUpdateService._private() {
   factory() {
@@ -26,8 +27,9 @@ class const ToolUpdateService._private() {
     },
   );
 
-  static const _githubAPI =
-      'https://api.github.com/repos/meetrevision/revision-tool/releases/latest';
+  static final String _githubAPI = NetworkEndpoints.githubLatestRelease(
+    GitHubRepositoryEndpoint.winDebloat,
+  ).toString();
 
   static final Directory _tempDir = Directory.systemTemp;
 
@@ -59,19 +61,24 @@ class const ToolUpdateService._private() {
   }
 
   Future<void> downloadNewVersion() async {
-    final path = '${_tempDir.path}\\RevisionTool-Setup.exe';
+    final path = '${_tempDir.path}\\WinDebloatTool-Setup.exe';
     final assetList = List<Map<String, dynamic>>.from(_data['assets'] as List<dynamic>);
+    // Playbook releases also carry the .apbx, so pick the installer by name.
+    final Map<String, dynamic> asset = assetList.firstWhere(
+      (a) => a['name'] == NetworkEndpoints.toolSetupAsset,
+      orElse: () => throw StateError('${NetworkEndpoints.toolSetupAsset} not found in the latest release'),
+    );
     final Response<dynamic> download = await _dio.download(
-      assetList.first['browser_download_url'] as String,
+      asset['browser_download_url'] as String,
       path,
     );
-    logger.i('New Revision Tool download status: ${download.statusMessage}');
+    logger.i('New WinDebloat Tool download status: ${download.statusMessage}');
   }
 
   Future<void> installUpdate() async {
-    final installerPath = '${_tempDir.path}\\RevisionTool-Setup.exe';
+    final installerPath = '${_tempDir.path}\\WinDebloatTool-Setup.exe';
     final String appPath = Platform.resolvedExecutable;
-    final scriptPath = '${_tempDir.path}\\revitool_update.cmd';
+    final scriptPath = '${_tempDir.path}\\wdtool_update.cmd';
 
     File(scriptPath).writeAsStringSync(
       '@echo off\r\n'

@@ -6,14 +6,13 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:revitool/core/error/result.dart';
-import 'package:revitool/core/network/api_client.dart';
 import 'package:revitool/features/tweaks/security/security_service.dart';
 import 'package:revitool/features/winsxs/winsxs.dart';
 
 class MockSecurityService() extends Mock implements SecurityService;
 
 final class FakeWinPackageService() extends WinPackageService {
-  this : super(type: .defenderRemoval, repository: WinPackageService.createRepository(ApiClient()));
+  this : super(type: .defenderRemoval, repository: WinPackageService.createRepository());
 
   @override
   Future<Result<void>> install({bool force = false}) async {

@@ -34,7 +34,7 @@ class TweaksPatchesCommand() extends Command<void> {
   String get name => 'patches';
 
   @override
-  String get description => 'Apply main ReviOS playbook patches';
+  String get description => 'Apply WinDebloat playbook micro-patches (hook for fixes between playbook releases)';
 
   @override
   FutureOr<void> run() async {

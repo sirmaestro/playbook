@@ -8,7 +8,7 @@ import 'core/services/win_registry_service.dart';
 final settingsExperimentalStatus = Provider<bool>((ref) {
   return WinRegistryService.readInt(
         LOCAL_MACHINE,
-        r'SOFTWARE\Revision\Revision Tool',
+        r'SOFTWARE\WinDebloat\WinDebloat Tool',
         'Experimental',
       ) ==
       1;

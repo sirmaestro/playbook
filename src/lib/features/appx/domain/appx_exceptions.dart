@@ -19,7 +19,7 @@ final class AppxBridgeUnavailableException extends AppxException {
   // ignore: use_primary_constructors, unnecessary_type_name_in_constructor
   AppxBridgeUnavailableException([Object? reason])
     : super(
-        'The AppX native bridge could not be loaded. Run Revision Tool from '
+        'The AppX native bridge could not be loaded. Run WinDebloat Tool from '
         'its installed location.',
         reason,
       );

@@ -9,7 +9,6 @@ class MockWinPackageRepository() extends Mock implements WinPackageRepository;
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(const CabAsset(name: '', downloadUrl: ''));
     registerFallbackValue(WinPackageType.systemComponentsRemoval);
   });
   group('win_package versions', () {
@@ -27,30 +26,6 @@ void main() {
     test('compares version components numerically', () {
       expect(comparePackageVersions((1, 10, 0, 0), (1, 2, 0, 0)), greaterThan(0));
       expect(comparePackageVersions((1, 0, 0, 0), (1, 0, 0, 0)), equals(0));
-    });
-  });
-
-  group('ReleaseModel', () {
-    test('maps the release payload to domain entities', () {
-      final model = ReleaseModel.fromJson(<String, dynamic>{
-        'tag_name': '10.0.26200.6725',
-        'assets': [
-          {
-            'name': 'Revision-ReviOS-AI-Removal~31bf3856ad364e35~amd64~~10.0.26200.6725.cab',
-            'browser_download_url': 'https://example.com/ai.cab',
-          },
-        ],
-      });
-
-      final WinPackageRelease release = model.toDomain();
-
-      expect(release.tagName, equals('10.0.26200.6725'));
-      expect(release.assets, hasLength(1));
-      expect(
-        release.assets.first.name,
-        equals('Revision-ReviOS-AI-Removal~31bf3856ad364e35~amd64~~10.0.26200.6725.cab'),
-      );
-      expect(release.assets.first.downloadUrl, equals('https://example.com/ai.cab'));
     });
   });
 
@@ -130,29 +105,16 @@ void main() {
     late MockWinPackageRepository repository;
     late SystemPackagesRemovalService service;
 
-    final releaseModel = ReleaseModel.fromJson(<String, dynamic>{
-      'tag_name': '2.3.1.0',
-      'assets': [
-        {
-          'name':
-              'Revision-ReviOS-SystemPackages-Removal.31bf3856ad364e35.${WinRegistryService.cpuArch}.2.3.1.0.cab',
-          'browser_download_url': 'https://example.com/system.cab',
-        },
-      ],
-    });
+    final bundledCab =
+        'Revision-ReviOS-SystemPackages-Removal.31bf3856ad364e35.'
+        '${WinRegistryService.cpuArch}.2.3.1.0.cab';
 
     setUp(() {
       repository = MockWinPackageRepository();
       service = SystemPackagesRemovalService(repository: repository);
 
       when(() => repository.ensureDirectory(any())).thenReturn(null);
-      when(() => repository.fetchRelease()).thenAnswer((_) async => releaseModel);
-      when(
-        () => repository.downloadAsset(
-          asset: any(named: 'asset'),
-          filePath: any(named: 'filePath'),
-        ),
-      ).thenAnswer((_) async {});
+      when(() => repository.findBundledPackage(.systemComponentsRemoval)).thenReturn(bundledCab);
       when(() => repository.fileExists(any())).thenReturn(true);
       when(() => repository.fetchSignatureUsage(any()))
           .thenAnswer((_) async => '1.3.6.1.4.1.311.10.3.6');

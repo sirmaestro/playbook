@@ -3,7 +3,7 @@ import 'dart:io';
 Future<void> main(List<String> args) async {
   final String version =
       _parseArg(args, '--version') ?? Platform.environment['APP_VERSION'] ?? '1.0.0';
-  final String output = _parseArg(args, '--output') ?? _parseArg(args, '-o') ?? '../revitool.exe';
+  final String output = _parseArg(args, '--output') ?? _parseArg(args, '-o') ?? '../wdtool.exe';
   final bool skipManifest = args.contains('--no-manifest');
 
   final outputFile = File(output);
@@ -12,7 +12,7 @@ Future<void> main(List<String> args) async {
     outputDir.createSync(recursive: true);
   }
 
-  stdout.writeln('Building revitool CLI (v$version) -> ${outputFile.path}...');
+  stdout.writeln('Building wdtool CLI (v$version) -> ${outputFile.path}...');
 
   // 1. Build the AppX native bridge DLL via build hooks first (it cleans build/cli).
   stdout.writeln('Building native bridge DLL...');

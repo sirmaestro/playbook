@@ -43,7 +43,7 @@ Future<void> main(List<String> args) async {
     return true;
   };
 
-  logger.i('$tag Revision Tool GUI is starting');
+  logger.i('$tag WinDebloat Tool GUI is starting');
   await WinRegistryService.initialize();
   try {
     logger.i('$tag Initializing TrustedInstaller service');
@@ -63,26 +63,26 @@ Future<void> main(List<String> args) async {
 
   if (WinRegistryService.readString(
         LOCAL_MACHINE,
-        r'SOFTWARE\Revision\Revision Tool',
+        r'SOFTWARE\WinDebloat\WinDebloat Tool',
         'ThemeMode',
       ) ==
       null) {
-    logger.i('$tag Initializing Revision registry keys');
+    logger.i('$tag Initializing WinDebloat registry keys');
     await WinRegistryService.writeRegistryValue(
       LOCAL_MACHINE,
-      r'SOFTWARE\Revision\Revision Tool',
+      r'SOFTWARE\WinDebloat\WinDebloat Tool',
       'ThemeMode',
       ThemeMode.system.name,
     );
     await WinRegistryService.writeRegistryValue(
       LOCAL_MACHINE,
-      r'SOFTWARE\Revision\Revision Tool',
+      r'SOFTWARE\WinDebloat\WinDebloat Tool',
       'Experimental',
       0,
     );
     await WinRegistryService.writeRegistryValue(
       LOCAL_MACHINE,
-      r'SOFTWARE\Revision\Revision Tool',
+      r'SOFTWARE\WinDebloat\WinDebloat Tool',
       'Language',
       AppLocale.en.name,
     );
@@ -104,7 +104,7 @@ Future<void> main(List<String> args) async {
 
   logger.i('$tag Initializing WindowPlus');
   await WindowPlus.ensureInitialized(
-    application: 'revision-tool',
+    application: 'windebloat-tool',
     enableCustomFrame: true,
     enableEventStreams: false,
   );
@@ -136,7 +136,7 @@ class const MyApp({super.key}) extends ConsumerWidget {
 
         return FluentApp.router(
           routerConfig: ref.read(appRouterProvider),
-          title: 'Revision Tool',
+          title: 'WinDebloat Tool',
           debugShowCheckedModeBanner: false,
           locale: TranslationProvider.of(context).flutterLocale,
           supportedLocales: AppLocaleUtils.supportedLocales,

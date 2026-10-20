@@ -2,6 +2,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart' as msicons;
 import 'package:process_run/shell_run.dart';
 
+import '../../core/network/network_endpoints.dart';
 import '../../core/widgets/card_highlight.dart';
 import '../../extensions.dart';
 import '../../i18n/generated/strings.g.dart';
@@ -15,22 +16,22 @@ class const HomePage({super.key}) extends StatelessWidget {
         icon: FluentIcons.git_graph,
         label: t.homeCardGithub,
         description: t.homeCardGithubDescription,
-        onPressed: () async => launchURL('https://github.com/meetrevision'),
+        onPressed: () async => launchURL(ProjectLinks.repository),
 
         action: const ChevronRightAction(),
       ),
       CardHighlight(
-        icon: msicons.FluentIcons.drink_coffee_20_regular,
-        label: t.homeCardDonate,
-        description: t.homeCardDonateDescription,
-        onPressed: () async => launchURL('https://revi.cc/donate'),
+        icon: msicons.FluentIcons.chat_help_20_regular,
+        label: t.homeCardIssues,
+        description: t.homeCardIssuesDescription,
+        onPressed: () async => launchURL(ProjectLinks.issues),
         action: const ChevronRightAction(),
       ),
       CardHighlight(
-        icon: msicons.FluentIcons.chat_help_20_regular,
-        label: t.homeCardDiscord,
-        description: t.homeCardDiscordDescription,
-        onPressed: () async => launchURL('https://discord.gg/962y4pU'),
+        icon: msicons.FluentIcons.open_20_regular,
+        label: t.homeCardUpstream,
+        description: t.homeCardUpstreamDescription,
+        onPressed: () async => launchURL(ProjectLinks.upstream),
         action: const ChevronRightAction(),
       ),
     ];
@@ -89,7 +90,7 @@ class const _HomePageContent() extends StatelessWidget {
           crossAxisAlignment: .start,
           children: [
             Text(t.homeWelcome, style: const TextStyle(fontSize: 16, color: Color(0xB7FFFFFF))),
-            const Text('Revision Tool', style: TextStyle(fontSize: 28, color: Color(0xFFffffff))),
+            const Text('WinDebloat Tool', style: TextStyle(fontSize: 28, color: Color(0xFFffffff))),
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Text(
@@ -104,7 +105,7 @@ class const _HomePageContent() extends StatelessWidget {
                 child: Button(
                   child: Text(t.homeReviLink),
                   onPressed: () async =>
-                      run('rundll32 url.dll,FileProtocolHandler https://revi.cc'),
+                      run('rundll32 url.dll,FileProtocolHandler ${ProjectLinks.repository}'),
                 ),
               ),
             ),
@@ -115,7 +116,7 @@ class const _HomePageContent() extends StatelessWidget {
                 child: FilledButton(
                   child: Text(t.homeReviFAQLink),
                   onPressed: () async =>
-                      run('rundll32 url.dll,FileProtocolHandler https://revi.cc/docs'),
+                      run('rundll32 url.dll,FileProtocolHandler ${ProjectLinks.docs}'),
                 ),
               ),
             ),

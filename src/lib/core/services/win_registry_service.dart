@@ -61,41 +61,25 @@ abstract class const WinRegistryService._private() {
   static final bool isIntelCpu = _cpuVendorIdentifier.contains('intel');
   static final bool isAmdCpu = _cpuVendorIdentifier.contains('amd');
 
+  /// `<UniqueId>` of the WinDebloat playbook (`src\playbook.conf`). AME Wizard extracts the
+  /// running playbook to `%TEMP%\AME\Playbooks\<UniqueId>`, which lets the CLI run mid-apply.
+  static const amePlaybookId = 'CA9FBC8F-7396-419C-9F4C-6F80D7A5AB9F';
+
+  /// Edition marker written by the playbook (`Tasks\registry\os-info\edition.yml`).
+  static const _editionMarker = 'WinDebloat';
+
   static final bool isAmePlaybook = Directory(
-    '${Directory.systemTemp.path}\\AME\\Playbooks\\Revision-ReviOS',
+    '${Directory.systemTemp.path}\\AME\\Playbooks\\$amePlaybookId',
   ).existsSync();
 
   static bool get isSupported {
-    return _validate() ||
-        readString(
-              LOCAL_MACHINE,
-              r'SOFTWARE\Microsoft\Windows NT\CurrentVersion',
-              'EditionSubVersion',
-            ) ==
-            'ReviOS' ||
-        readString(
-              LOCAL_MACHINE,
-              r'SOFTWARE\Microsoft\Windows NT\CurrentVersion',
-              'EditionSubManufacturer',
-            ) ==
-            'MeetRevision';
-  }
-
-  static bool _validate() {
-    final RegistryKey key = LOCAL_MACHINE.open(
-      r'SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages',
-    );
-
-    try {
-      return key.keys.lastWhere((element) => element.startsWith('Revision-ReviOS')).isNotEmpty;
-    } catch (e) {
-      if (!isAmePlaybook) {
-        logger.w('Error validating ReviOS');
+    for (final name in const ['EditionSubManufacturer', 'EditionSubVersion']) {
+      if (readString(LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows NT\CurrentVersion', name) ==
+          _editionMarker) {
+        return true;
       }
-      return false;
-    } finally {
-      key.close();
     }
+    return false;
   }
 
   static Future<void> hidePageVisibilitySettings(String pageNames) async {
@@ -193,7 +177,7 @@ abstract class const WinRegistryService._private() {
   }
 
   static String? get themeModeReg =>
-      readString(LOCAL_MACHINE, r'SOFTWARE\Revision\Revision Tool', 'ThemeMode');
+      readString(LOCAL_MACHINE, r'SOFTWARE\WinDebloat\WinDebloat Tool', 'ThemeMode');
 
   static bool get themeTransparencyEffect =>
       readInt(

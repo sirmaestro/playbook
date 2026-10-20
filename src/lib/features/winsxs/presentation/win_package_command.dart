@@ -25,7 +25,7 @@ class WindowsPackageCommand({required final ProviderContainer _container}) exten
   static const tag = 'Windows Package';
 
   @override
-  String get description => '[$tag] Manage ReviOS WinSxS removal packages';
+  String get description => '[$tag] Manage the bundled WinSxS (CBS) removal packages';
 
   @override
   String get name => 'winpackage';

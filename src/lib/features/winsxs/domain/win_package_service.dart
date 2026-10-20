@@ -1,13 +1,11 @@
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/error/result.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/services/win_registry_service.dart';
 import '../../../core/utils/base_service.dart';
 import '../../../utils.dart';
@@ -16,7 +14,6 @@ import '../../ms_store/domain/entities/store_download_info.dart';
 import '../../ms_store/domain/entities/store_enums.dart';
 import '../../ms_store/domain/services/store_service.dart';
 import '../../tweaks/security/security_service.dart';
-import '../data/datasources/api_cab_datasource.dart';
 import '../data/repositories/win_package_repository.dart';
 import '../data/repositories/win_package_repository_impl.dart';
 import './entities/win_package.dart';
@@ -29,14 +26,12 @@ abstract base class const WinPackageService({
   required final WinPackageType _type,
   required final WinPackageRepository _repository,
 }) with BaseService {
-  static final String cabPath = p.join(Directory.systemTemp.path, 'Revision-Tool', 'CAB');
+  static final String cabPath = p.join(Directory.systemTemp.path, 'WinDebloat-Tool', 'CAB');
 
   /// Enhanced key usage expected on CAB signer certificates.
   static const _systemComponentVerificationOid = '1.3.6.1.4.1.311.10.3.6';
 
-  static WinPackageRepository createRepository(ApiClient api) {
-    return WinPackageRepositoryImpl(api: ApiCabDataSource(api: api));
-  }
+  static WinPackageRepository createRepository() => const WinPackageRepositoryImpl();
 
   static bool checkPackageInstalled(WinPackageType p) {
     return WinPackageRepositoryImpl.isCbsPackageInstalled(p.packageName);
@@ -54,72 +49,36 @@ abstract base class const WinPackageService({
   @override
   String get logTag => 'WinPackageService';
 
-  /// Downloads [type] from GitHub or uses the bundled package if available.
+  /// Resolves the bundled CAB for [type] (`additionals/packages/winsxs`, pinned in
+  /// `tool/winsxs_packages.json`). Packages are never fetched at runtime.
   ///
+  /// When [path] is given the bundled CAB is copied there first.
   /// Returns [DownloadedPackage] with the path and version of the package.
   Future<Result<DownloadedPackage>> download({String? path}) {
-    final String downloadPath = path ?? cabPath;
-
     return run(() async {
-      try {
-        logger.i('Attempting to download package from GitHub...');
-
-        _repository.ensureDirectory(downloadPath);
-
-        final WinPackageRelease release = (await _repository.fetchRelease()).toDomain();
-
-        final WinPackageVersion? releaseVersion = parsePackageVersion('~~${release.tagName}');
-        if (releaseVersion == null) {
-          throw InvalidWinSxSPackageVersionException('Invalid release version: ${release.tagName}');
-        }
-
-        final CabAsset? asset = release.assets.firstWhereOrNull(
-          (a) => isWinPackageFile(a.name, _type, WinRegistryService.cpuArch),
-        );
-        if (asset == null) {
-          throw WinSxSPackageNotFoundException(
-            'No matching package found for ${_type.packageName} with architecture ${WinRegistryService.cpuArch}',
-          );
-        }
-
-        final String filePath = p.join(downloadPath, asset.name);
-
-        await _repository.downloadAsset(asset: asset, filePath: filePath);
-
-        logger.i('Successfully downloaded package from GitHub: $filePath');
-        return DownloadedPackage(path: filePath, version: releaseVersion);
-      } catch (e, stackTrace) {
-        logger.w('Failed to download from GitHub', error: e, stackTrace: stackTrace);
-        logger.i('Falling back to bundled packages...');
-
-        if (_repository.findBundledPackage(_type) case final bundledPath?
-            when _repository.fileExists(bundledPath)) {
-          logger.i('Using bundled package: $bundledPath');
-
-          final String targetPath = switch (path) {
-            null => bundledPath,
-            final dir => p.join(dir, p.basename(bundledPath)),
-          };
-          if (path case final dir?) {
-            _repository.ensureDirectory(dir);
-            _repository.copyFile(sourcePath: bundledPath, targetPath: targetPath);
-          }
-          final WinPackageVersion? bundledVersion = parsePackageVersion(
-            p.basenameWithoutExtension(targetPath),
-          );
-          if (bundledVersion == null) {
-            throw InvalidWinSxSPackageVersionException(
-              'Invalid bundled package version: $targetPath',
-            );
-          }
-          return .new(path: targetPath, version: bundledVersion);
-        }
-
-        throw WinSxSPackageDownloadException(
-          'Failed to download package from GitHub and no bundled package available',
-          e,
+      final String? bundledPath = _repository.findBundledPackage(_type);
+      if (bundledPath == null || !_repository.fileExists(bundledPath)) {
+        throw WinSxSPackageNotFoundException(
+          'No bundled package found for ${_type.packageName} with architecture ${WinRegistryService.cpuArch}',
         );
       }
+      logger.i('Using bundled package: $bundledPath');
+
+      final String targetPath = switch (path) {
+        null => bundledPath,
+        final dir => p.join(dir, p.basename(bundledPath)),
+      };
+      if (path case final dir?) {
+        _repository.ensureDirectory(dir);
+        _repository.copyFile(sourcePath: bundledPath, targetPath: targetPath);
+      }
+      final WinPackageVersion? bundledVersion = parsePackageVersion(
+        p.basenameWithoutExtension(targetPath),
+      );
+      if (bundledVersion == null) {
+        throw InvalidWinSxSPackageVersionException('Invalid bundled package version: $targetPath');
+      }
+      return .new(path: targetPath, version: bundledVersion);
     });
   }
 
@@ -200,7 +159,7 @@ abstract base class const WinPackageService({
           _repository.deleteTempPackage(package.path);
         } catch (retryError) {
           throw WinSxSPackageUninstallException(
-            'Failed to uninstall ${_type.packageName} after recovery attempt. Contact support at https://revi.cc/.',
+            'Failed to uninstall ${_type.packageName} after recovery attempt. Report it at https://github.com/sirmaestro/playbook/issues.',
             'Original error: $error; Retry error: $retryError',
           );
         }

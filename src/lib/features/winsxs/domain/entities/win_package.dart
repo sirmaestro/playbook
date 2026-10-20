@@ -21,7 +21,8 @@ enum WinPackageType({required final String packageName, required final String cl
 
 typedef WinPackageVersion = (int, int, int, int);
 
-/// Public key token shared by every ReviOS WinSxS removal package name.
+/// Public key token shared by every bundled WinSxS removal package name (upstream-built cabs keep
+/// their `Revision-ReviOS-*` CBS identity; renaming would invalidate the signed package).
 const String winPackagePublicKeyToken = '31bf3856ad364e35';
 
 /// Whether [fileName] is the installable CAB for [type] on [cpuArch].
@@ -37,13 +38,6 @@ bool isWinPackageFile(String fileName, WinPackageType type, String cpuArch) {
       name.contains(cpuArch) &&
       name.endsWith('.cab');
 }
-
-final class const CabAsset({required final String name, required final String downloadUrl});
-
-final class const WinPackageRelease({
-  required final String tagName,
-  required final IList<CabAsset> assets,
-});
 
 final class const DownloadedPackage({
   required final String path,

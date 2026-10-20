@@ -122,7 +122,7 @@ Win32Window::~Win32Window() {
 
 // https://stackoverflow.com/a/73526467
 bool CheckOneInstance() {
-  HANDLE m_hStartEvent = CreateEventW(NULL, FALSE, FALSE, L"Global\\revitoolw");
+  HANDLE m_hStartEvent = CreateEventW(NULL, FALSE, FALSE, L"Global\\wdtoolw");
 
   if(m_hStartEvent == NULL) {
     CloseHandle(m_hStartEvent);

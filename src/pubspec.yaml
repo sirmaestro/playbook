@@ -1,5 +1,5 @@
 name: revitool
-description: A tool to personalize ReviOS to your needs
+description: WinDebloat Tool - companion CLI/GUI for the WinDebloat playbook (fork of Revision Tool, GPL-3.0)
 publish_to: "none"
 
 # The version number defaults to 1.0.0 for easier development and is incremented by the build flags based on the tag
@@ -134,11 +134,11 @@ melos:
       run: dart run slang && dart run vector_graphics_compiler --input-dir assets/icon/pane --out-dir assets/icon/pane && dart run build_runner build
 
     build:cli:
-      description: Build revitool CLI with native bridge DLL and elevation manifest.
+      description: Build wdtool CLI with native bridge DLL and elevation manifest.
       run: dart run tool/build_cli.dart
     build:cli:dev:
-      description: Build dev revitool CLI without requiring UAC elevation.
-      run: dart run tool/build_cli.dart --no-manifest -o build/cli/revitool_dev.exe
+      description: Build dev wdtool CLI without requiring UAC elevation.
+      run: dart run tool/build_cli.dart --no-manifest -o build/cli/wdtool_dev.exe
     build:gui:
       description: Build the Windows GUI application.
       run: flutter build windows --split-debug-info=/symbols
@@ -147,10 +147,10 @@ melos:
       run: flutter build windows --obfuscate --split-debug-info=/symbols
     
     bundle:winsxs:
-      description: Download bundled WinSxS packages from GitHub releases.
+      description: Verify the pinned WinSxS packages (tool/winsxs_packages.json).
       run: dart run tool/bundle_winsxs.dart
     bundle:appx:
-      description: Download bundled VCLibs AppX packages via revitool CLI.
+      description: Download bundled VCLibs AppX packages via wdtool CLI.
       run: dart run tool/bundle_appx.dart
     build:installer:
       description: Compile Inno Setup installer.

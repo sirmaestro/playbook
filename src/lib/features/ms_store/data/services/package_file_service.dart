@@ -18,7 +18,7 @@ final storePackageFileServiceProvider = Provider<PackageFileService>((ref) {
 
 /// Service for file system operations related to MS Store packages.
 class const PackageFileService(final ApiClient _api) {
-  static final String _storeFolder = '${Directory.systemTemp.path}\\Revision-Tool\\MSStore';
+  static final String _storeFolder = '${Directory.systemTemp.path}\\WinDebloat-Tool\\MSStore';
 
   String downloadPath(String downloadId, StoreRing ring) {
     return '$_storeFolder\\$downloadId\\${ring.value}';

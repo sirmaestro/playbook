@@ -8,13 +8,9 @@ import 'package:win32_registry/win32_registry.dart';
 import '../../../../core/services/win_registry_service.dart';
 import '../../../../utils.dart';
 import '../../domain/entities/win_package.dart';
-import '../../domain/winsxs_exceptions.dart';
-import '../datasources/api_cab_datasource.dart';
-import '../models/release_model.dart';
 import 'win_package_repository.dart';
 
-final class const WinPackageRepositoryImpl({required final ApiCabDataSource api})
-    implements WinPackageRepository {
+final class const WinPackageRepositoryImpl() implements WinPackageRepository {
   static final String bundledPackagesPath = p.join(directoryExe, 'packages', 'winsxs');
 
   static const _cbsPackagesRegPath =
@@ -39,17 +35,6 @@ final class const WinPackageRepositoryImpl({required final ApiCabDataSource api}
       return packageRoot.keys.where((e) => e.startsWith(packageName)).any(_isPackageKeyInstalled);
     } finally {
       packageRoot.close();
-    }
-  }
-
-  @override
-  Future<ReleaseModel> fetchRelease() => api.fetchLatestRelease();
-
-  @override
-  Future<void> downloadAsset({required CabAsset asset, required String filePath}) async {
-    await api.downloadFile(url: asset.downloadUrl, filePath: filePath);
-    if (!fileExists(filePath)) {
-      throw WinSxSPackageDownloadException('Failed to download package: ${asset.name}');
     }
   }
 

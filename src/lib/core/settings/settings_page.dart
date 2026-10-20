@@ -8,6 +8,7 @@ import 'package:win32_registry/win32_registry.dart';
 import '../../extensions.dart';
 import '../../i18n/generated/strings.g.dart';
 import '../../utils_gui.dart';
+import '../network/network_endpoints.dart';
 import '../services/win_registry_service.dart';
 import '../widgets/app_icon_image.dart';
 import '../widgets/card_highlight.dart';
@@ -77,7 +78,7 @@ class const _ExperimentalCard() extends ConsumerWidget {
         onChanged: (value) async {
           await WinRegistryService.writeRegistryValue(
             LOCAL_MACHINE,
-            r'SOFTWARE\Revision\Revision Tool',
+            r'SOFTWARE\WinDebloat\WinDebloat Tool',
             'Experimental',
             value ? 1 : 0,
           );
@@ -204,7 +205,7 @@ class const _LanguageCard() extends ConsumerWidget {
           final String localeName = value ?? AppLocale.en.name;
           await WinRegistryService.writeRegistryValue(
             LOCAL_MACHINE,
-            r'SOFTWARE\Revision\Revision Tool',
+            r'SOFTWARE\WinDebloat\WinDebloat Tool',
             'Language',
             localeName,
           );
@@ -217,8 +218,8 @@ class const _LanguageCard() extends ConsumerWidget {
 }
 
 class const _AboutCard() extends StatelessWidget {
-  static const _docsUrl = 'https://revi.cc/docs';
-  static const _privacyUrl = 'https://revi.cc/privacy';
+  static const _docsUrl = ProjectLinks.docs;
+  static const _upstreamUrl = ProjectLinks.upstream;
   static const _appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
 
   @override
@@ -230,7 +231,7 @@ class const _AboutCard() extends StatelessWidget {
         fallback: Icon(msicons.FluentIcons.info_20_regular, size: 24),
       ),
       label: t.settingsAbout,
-      description: 'Revision Tool ${kDebugMode ? '(Debug)' : 'v$_appVersion'}',
+      description: 'WinDebloat Tool ${kDebugMode ? '(Debug)' : 'v$_appVersion'}',
       action: const _CheckForUpdatesButton(),
       children: [
         Padding(
@@ -241,7 +242,8 @@ class const _AboutCard() extends StatelessWidget {
             spacing: 16.0,
             children: [
               _AboutLink(label: t.settingsDocs, url: _docsUrl),
-              _AboutLink(label: t.settingsPrivacy, url: _privacyUrl),
+              // GPL-3.0 attribution: this tool is a fork of Revision Tool.
+              _AboutLink(label: t.homeCardUpstream, url: _upstreamUrl),
             ],
           ),
         ),
@@ -278,7 +280,7 @@ final class const _AboutLink({required final String label, required final String
 }
 
 final class const _GetHelpLink() extends StatelessWidget {
-  static const _discordUrl = 'https://revi.cc/discord';
+  static const _helpUrl = ProjectLinks.issues;
 
   @override
   Widget build(BuildContext context) {
@@ -286,10 +288,10 @@ final class const _GetHelpLink() extends StatelessWidget {
       alignment: .centerLeft,
       child: Tooltip(
         useMousePosition: false,
-        message: _discordUrl,
+        message: _helpUrl,
         child: HyperlinkButton(
           child: Text(t.settingsGetHelp),
-          onPressed: () async => launchURL(_discordUrl),
+          onPressed: () async => launchURL(_helpUrl),
         ),
       ),
     );

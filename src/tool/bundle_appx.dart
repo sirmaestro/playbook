@@ -9,24 +9,25 @@ Future<void> main(List<String> args) async {
     targetDir.createSync(recursive: true);
   }
 
-  // Revitool CLI requires ReviOS EditionSubVersion.
+  // The CLI refuses to run unless the WinDebloat edition marker is present (see
+  // WinRegistryService.isSupported); set it on the CI runner.
   if (Platform.isWindows) {
     try {
       final RegistryKey key = LOCAL_MACHINE.create(r'SOFTWARE\Microsoft\Windows NT\CurrentVersion');
       try {
-        key.setValue('EditionSubVersion', const RegistryValue.string('ReviOS'));
+        key.setValue('EditionSubVersion', const RegistryValue.string('WinDebloat'));
       } finally {
         key.close();
       }
     } catch (_) {}
   }
 
-  stdout.writeln('Downloading VCLibs AppX packages via revitool...');
+  stdout.writeln('Downloading VCLibs AppX packages via wdtool...');
   final cliPath = File('build/cli/bundle/bin/main_cli.exe').existsSync()
       ? 'build/cli/bundle/bin/main_cli.exe'
-      : (File('../revitool.exe').existsSync()
-            ? '../revitool.exe'
-            : 'revitool.exe');
+      : (File('../wdtool.exe').existsSync()
+            ? '../wdtool.exe'
+            : 'wdtool.exe');
 
   final ProcessResult result = await Process.run(cliPath, [
     'msstore-apps',

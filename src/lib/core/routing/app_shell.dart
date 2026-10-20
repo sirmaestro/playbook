@@ -205,7 +205,7 @@ final class _AppShellState() extends ConsumerState<AppShell> {
                 mainAxisSize: .min,
                 children: [
                   AppIconImage(size: 24.0, fallback: SizedBox.shrink()),
-                  Text('Revision Tool', style: TextStyle(fontSize: 12)),
+                  Text('WinDebloat Tool', style: TextStyle(fontSize: 12)),
                 ],
               ),
             ),
@@ -285,7 +285,7 @@ final class _AppShellState() extends ConsumerState<AppShell> {
                     style: const .new(fontWeight: .w500, fontSize: 14),
                   ),
                   subtitle: const Text(
-                    'Proud ReviOS user',
+                    'WinDebloat user',
                     style: .new(fontSize: 11, fontWeight: .normal),
                   ),
                 ),

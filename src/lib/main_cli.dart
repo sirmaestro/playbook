@@ -14,14 +14,14 @@ import 'utils.dart';
 
 Future<void> main(List<String> args) async {
   if (!WinRegistryService.isSupported && !WinRegistryService.isAmePlaybook) {
-    logger.i('Unsupported build detected. Please apply ReviOS on your system');
+    logger.i('Unsupported system detected. Please apply the WinDebloat playbook first');
     exit(55);
   }
 
   if (args.isEmpty) {
-    final guiPath = "${mainPath.substring(0, mainPath.lastIndexOf(r"\"))}\\revitoolw.exe";
+    final guiPath = "${mainPath.substring(0, mainPath.lastIndexOf(r"\"))}\\wdtoolw.exe";
     if (File(guiPath).existsSync()) {
-      await Process.start('revitoolw', []);
+      await Process.start('wdtoolw', []);
       exit(0);
     }
     exit(1);
@@ -30,12 +30,12 @@ Future<void> main(List<String> args) async {
 
   final container = ProviderContainer();
 
-  logger.i('$tag Revision Tool CLI is starting');
+  logger.i('$tag WinDebloat Tool CLI is starting');
 
   final runner =
       CommandRunner<void>(
-          'revitool',
-          "Revision Tool CLI v${const String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0')}",
+          'wdtool',
+          "WinDebloat Tool CLI v${const String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0')}",
         )
         ..addCommand(AppxCommand(container: container))
         ..addCommand(MSStoreCommand(service: container.read(storeServiceProvider)))

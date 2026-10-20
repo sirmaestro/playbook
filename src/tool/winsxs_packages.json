@@ -1,0 +1,67 @@
+{
+  "_comment": "Pinned CBS removal cabs, mirrored once from upstream and committed under additionals/packages/winsxs. Verified by tool/bundle_winsxs.dart at build time. To update: mirror a newer upstream tag, review, re-pin.",
+  "source": "https://github.com/meetrevision/packages/releases/tag/2.4.0.0",
+  "version": "2.4.0.0",
+  "packages": [
+    {
+      "name": "Revision-ReviOS-AI-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "dd96645a0b8e8df0faea0dfca3c92da387226039d6ae63425915aab43e764196",
+      "size": 12753
+    },
+    {
+      "name": "Revision-ReviOS-AI-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "6ee45d961cdc162ced072b689dca7a9a0ee1be689a4ecc7d86023f9e7792f97b",
+      "size": 12770
+    },
+    {
+      "name": "Revision-ReviOS-Defender-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "45d1c6bb088f6bd0e6dfda1b8e916cee4fbb728adfc99a4936dbadeecff04e03",
+      "size": 63097
+    },
+    {
+      "name": "Revision-ReviOS-Defender-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "169c69745f80c093e0ce9edc2cdb7890d152c91341e990042be7230c0ee34c0f",
+      "size": 67411
+    },
+    {
+      "name": "Revision-ReviOS-OneDrive-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "7c18b9ef7435a454abeb65a73c7e3f10adf66d96c457176648e435f7ad726b41",
+      "size": 8473
+    },
+    {
+      "name": "Revision-ReviOS-OneDrive-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "bc262a8a6ef9ea2e8ed57b8bd4412690d7ce1d984de14f95b7b1aad61e6b8ed7",
+      "size": 8494
+    },
+    {
+      "name": "Revision-ReviOS-SystemPackages-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "11ff18499d45da61ff143706a9e0ba1380f9f7c8ce979622ea2c014c0f6d132b",
+      "size": 74721
+    },
+    {
+      "name": "Revision-ReviOS-SystemPackages-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "c4d97af359cecbf92640a3753a2bce0ebe200ea0022848fdc9985ebde30aa484",
+      "size": 79498
+    },
+    {
+      "name": "Revision-ReviOS-Telemetry-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "eb7c9425a8004cfb6d6ac556c85f8251f23aa2c9799a1bb79f113b96daeef84e",
+      "size": 7870
+    },
+    {
+      "name": "Revision-ReviOS-Telemetry-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "78f6fede5e4c8173ae743332e4d9603e546c88280737cd81f2564063c9f69be3",
+      "size": 7884
+    },
+    {
+      "name": "Revision-ReviOS-Xbox-Removal.31bf3856ad364e35.amd64.2.4.0.0.cab",
+      "sha256": "8feeb63265bbf2f44c02cf31361fc627101446d4cbf8aa8d8450a1910a340253",
+      "size": 27152
+    },
+    {
+      "name": "Revision-ReviOS-Xbox-Removal.31bf3856ad364e35.arm64.2.4.0.0.cab",
+      "sha256": "e81fcdfd725ce366e02dc1558455faaff7c6fa04454ea9de3d19e83f32aeef95",
+      "size": 27255
+    }
+  ]
+}

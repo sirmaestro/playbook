@@ -1,7 +1,6 @@
 import 'package:riverpod/misc.dart';
 import 'package:riverpod/riverpod.dart';
 
-import '../../../core/network/api_client.dart';
 import '../../appx/presentation/appx_providers.dart';
 import '../../ms_store/domain/services/store_service.dart';
 import '../../tweaks/security/security_service.dart';
@@ -11,9 +10,7 @@ export '../domain/win_package_service.dart';
 
 final ProviderFamily<WinPackageService, WinPackageType> winPackageServiceProvider =
     Provider.family<WinPackageService, WinPackageType>((ref, type) {
-      final WinPackageRepository repository = WinPackageService.createRepository(
-        ref.watch(apiClientProvider),
-      );
+      final WinPackageRepository repository = WinPackageService.createRepository();
       return switch (type) {
         .systemComponentsRemoval => SystemPackagesRemovalService(repository: repository),
         .telemetryRemoval => TelemetryRemovalService(repository: repository),

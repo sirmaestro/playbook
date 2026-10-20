@@ -28,14 +28,14 @@ String systemLanguage =
 String appLanguage =
     WinRegistryService.readString(
       LOCAL_MACHINE,
-      r'SOFTWARE\Revision\Revision Tool',
+      r'SOFTWARE\WinDebloat\WinDebloat Tool',
       'Language',
     ) ??
     'en';
 
-final String ameTemp = path.join(Directory.systemTemp.path, 'AME', 'Playbooks', 'Revision-ReviOS');
+final String ameTemp = path.join(Directory.systemTemp.path, 'AME', 'Playbooks', WinRegistryService.amePlaybookId);
 
-final String tempReviPath = path.join(Directory.systemTemp.path, 'Revision-Tool', 'Logs');
+final String tempReviPath = path.join(Directory.systemTemp.path, 'WinDebloat-Tool', 'Logs');
 
 final logger = Logger(
   filter: ProductionFilter(),

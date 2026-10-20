@@ -1,0 +1,255 @@
+---
+title: Configure Privacy -> WinDebloat Extension
+description: Privacy/telemetry tweaks ported from the WinDebloat priv catalog (new values only; see docs/port/privacy.md)
+privilege: TrustedInstaller
+actions:
+
+  # =========================================================
+  # === Telemetry level 0 - extra values not in telemetry.yml
+  # =========================================================
+  # win: priv.telemetry-policy
+
+  # === Allow Telemetry (per-user CurrentVersion policy) - Disabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'AllowTelemetry', type: REG_DWORD, data: '0'}
+
+  # === Max Telemetry Allowed - Disabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'MaxTelemetryAllowed', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'MaxTelemetryAllowed', type: REG_DWORD, data: '0'}
+
+  # === Suppress the telemetry opt-in toast (mark as already shown at level 1)
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack', value: 'ShowedToastAtLevel', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Content Delivery Manager - extra SubscribedContent IDs
+  # =========================================================
+  # win: priv.content-delivery-off  (HKCU +DEFAULT mirror)
+
+  # === SubscribedContent 338393 (Settings suggestions) - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338393Enabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338393Enabled', type: REG_DWORD, data: '0'}
+
+  # === SubscribedContent 353694 (Settings suggestions) - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353694Enabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353694Enabled', type: REG_DWORD, data: '0'}
+
+  # === SubscribedContent 353696 (Settings suggestions) - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353696Enabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353696Enabled', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === CloudContent policies - extra HKLM values
+  # =========================================================
+  # win: priv.cloudcontent-policies
+
+  # === Disable consumer account state content (Settings / M365 account-state ads) - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableConsumerAccountStateContent', type: REG_DWORD, data: '1'}
+
+  # === Do not suggest third-party content in Windows spotlight (machine) - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableThirdPartySuggestions', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Restrict Internet communication - extra HKLM value
+  # =========================================================
+  # win: priv.restrict-internet-comm
+
+  # === Turn off Active Help (machine) - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Assistance\Client\1.0', value: 'NoActiveHelp', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Windows Error Reporting - extra HKCU value
+  # =========================================================
+  # win: priv.error-reporting-off
+
+  # === Disable Windows Error Reporting (per-user policy) - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'Disabled', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Advertising ID - extra values
+  # =========================================================
+  # win: priv.advertising-id-off
+
+  # === Turn off the advertising ID (per-user policy) - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo', value: 'DisabledByGroupPolicy', type: REG_DWORD, data: '1'}
+
+  # === Advertising ID (CPSS store mirror) - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CPSS\Store\AdvertisingInfo', value: 'Value', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Tailored experiences / feedback - extra HKCU value
+  # =========================================================
+  # win: priv.tailored-diagnostics-feedback
+
+  # === Do not show feedback notifications (per-user policy) - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'DoNotShowFeedbackNotifications', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Activity history - extra value
+  # =========================================================
+  # win: priv.activity-history-off
+
+  # === Allow publishing of User Activities on user consent - Disabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\System', value: 'PublishUserActivitiesOnUserConsent', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Inking / typing personalization - RT verb registry set + WH extras
+  # =========================================================
+  # win: priv.input-personalization-off
+  # NOTE: AllowInputPersonalization=0 intentionally NOT ported - the playbook applies
+  #       input-personalization disable via `wdtool tweaks personalization` and revert.yml
+  #       deletes the static value. See docs/port/privacy.md (CONFLICTS).
+
+  # === Restrict implicit ink/text collection (per-user) - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization', value: 'RestrictImplicitInkCollection', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization', value: 'RestrictImplicitTextCollection', type: REG_DWORD, data: '1'}
+
+  # === Do not harvest contacts for personalization - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization\TrainedDataStore', value: 'HarvestContacts', type: REG_DWORD, data: '0'}
+
+  # === InputPersonalization privacy policy not accepted
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization\Settings', value: 'AcceptedPrivacyPolicy', type: REG_DWORD, data: '0'}
+
+  # === Restrict implicit ink/text collection (per-user policy) - Enabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\InputPersonalization', value: 'RestrictImplicitInkCollection', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\InputPersonalization', value: 'RestrictImplicitTextCollection', type: REG_DWORD, data: '1'}
+
+  # === Restrict implicit ink/text collection (machine policy) - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\InputPersonalization', value: 'RestrictImplicitInkCollection', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\InputPersonalization', value: 'RestrictImplicitTextCollection', type: REG_DWORD, data: '1'}
+
+  # === Personalization privacy policy not accepted
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Personalization\Settings', value: 'AcceptedPrivacyPolicy', type: REG_DWORD, data: '0'}
+
+  # === CPSS store mirrors for inking/typing personalization - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CPSS\Store\InkingAndTypingPersonalization', value: 'Value', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\CPSS\Store\ImproveInkingAndTyping', value: 'Value', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Narrator online services / scripting off
+  # =========================================================
+  # win: priv.online-speech-narrator
+
+  # === Narrator online services - Disabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Narrator\NoRoam', value: 'OnlineServicesEnabled', type: REG_DWORD, data: '0'}
+
+  # === Narrator scripting - Disabled
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Narrator\NoRoam', value: 'ScriptingEnabled', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Location and sensors off - values not in win-settings.yml
+  # =========================================================
+  # win: priv.location-sensors-off
+
+  # === Location consent (machine) - Deny
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location', value: 'Value', type: REG_SZ, data: 'Deny'}
+
+  # === Turn off location / sensors (policy) - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors', value: 'DisableLocation', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors', value: 'DisableSensors', type: REG_DWORD, data: '1'}
+
+  # === Location sensor permission state - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Permissions\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}', value: 'SensorPermissionState', type: REG_DWORD, data: '0'}
+
+  # === Geolocation status - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Geolocation', value: 'Status', type: REG_DWORD, data: '0'}
+
+  # === Geolocation service (lfsvc) configuration status - Off
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\lfsvc\Service\Configuration', value: 'Status', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Find My Device policy disabled
+  # =========================================================
+  # win: priv.find-my-device-off
+
+  # === Allow Find My Device - Disabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\FindMyDevice', value: 'AllowFindMyDevice', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Feature adverts / suggestion toasts - extra values
+  # =========================================================
+  # win: priv.feature-advert-tips
+  # NOTE: EnableAccountNotifications=0 intentionally NOT ported - playbook deliberately
+  #       sets it to 1 (win-settings.yml). See docs/port/privacy.md (CONFLICTS).
+
+  # === Suggested-app toast - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\Windows.SystemToast.Suggested', value: 'Enabled', type: REG_DWORD, data: '0'}
+
+  # === Startup-app notification toast - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\Windows.SystemToast.StartupApp', value: 'Enabled', type: REG_DWORD, data: '0'}
+
+  # === OneDrive (SkyDrive) desktop toast - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\Microsoft.SkyDrive.Desktop', value: 'Enabled', type: REG_DWORD, data: '0'}
+
+  # === Account health toast - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\Windows.SystemToast.AccountHealth', value: 'Enabled', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Start menu tracking - extra values
+  # =========================================================
+  # win: priv.start-tracking-off
+
+  # === Allow Windows to track app launches / opened documents - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_TrackProgs', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_TrackDocs', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Search device history / cloud search off
+  # =========================================================
+  # win: priv.search-cloud-history
+  # NOTE: AllowCortana=0 (HKLM+HKCU) intentionally NOT ported - playbook deliberately
+  #       sets HKLM AllowCortana=1 (search.yml). See docs/port/privacy.md (CONFLICTS).
+
+  # === Device search history - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsDeviceSearchHistoryEnabled', type: REG_DWORD, data: '0'}
+
+  # === Dynamic (Bing) search box - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsDynamicSearchBoxEnabled', type: REG_DWORD, data: '0'}
+
+  # === MSA cloud search - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsMSACloudSearchEnabled', type: REG_DWORD, data: '0'}
+
+  # === AAD cloud search - Off
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsAADCloudSearchEnabled', type: REG_DWORD, data: '0'}
+
+
+  # =========================================================
+  # === Device metadata download from network off
+  # =========================================================
+  # win: priv.device-metadata-network-off
+
+  # === Prevent device metadata retrieval from the network - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Metadata', value: 'PreventDeviceMetadataFromNetwork', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Device Metadata', value: 'PreventDeviceMetadataFromNetwork', type: REG_DWORD, data: '1'}
+
+
+  # =========================================================
+  # === Usage reporting - SleepStudy registry only
+  # =========================================================
+  # win: priv.usage-reporting-off
+  # NOTE: service DPS=disabled is a CONFLICT (playbook keeps DPS on); services diagsvc
+  #       and the 3 wevtutil channel disables are non-registry and belong in services.yml.
+  #       See docs/port/privacy.md.
+
+  # === SleepStudy report generation - Disabled
+  - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\Session Manager\Power', value: 'SleepStudyDisabled', type: REG_DWORD, data: '1'}
+
+  # === OneDrive automatic backups (Known Folder Move opt-in) - Blocked
+  # ------> Stops OneDrive prompting to / silently backing up Desktop, Documents, Pictures. No effect on
+  #         backups already active. Harmless if OneDrive is removed (remove-onedrive). Source: Winhance
+  #         privacy-onedrive-auto-backup.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\OneDrive', value: 'KFMBlockOptIn', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\OneDrive', value: 'KFMBlockOptIn', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Policies\Microsoft\OneDrive', value: 'KFMBlockOptIn', type: REG_DWORD, data: '1'}

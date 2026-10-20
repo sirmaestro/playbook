@@ -1,0 +1,41 @@
+---
+title: Configure Security -> WinDebloat AI
+description: AI (Copilot / Recall / Click To Do) policy tweaks ported from the WinDebloat catalog (catalog/ai.psd1) that are not already set by the playbook or the ai-removal CBS package
+privilege: TrustedInstaller
+actions:
+
+  # NOTE: catalog/ai.psd1 entries that map to existing mechanisms are intentionally NOT re-added here:
+  #   - ai.remove-copilot-appx (appx)        -> remove-winsxs-ai + ai-removal CBS + packages/windebloat-appx.yml
+  #   - ai.recall-feature-remove (Feature)   -> ai-removal CBS (Recall UserExperience-AIX/CoreAI)
+  #   - ai.bing-copilot-ifeo-block (Registry)-> already in registry/system/ifeo.yml (exact duplicate)
+  #   - DisableAIDataAnalysis (HKLM)         -> already in registry/explorer/win-settings.yml (exact duplicate)
+
+  # === Turn off Windows Copilot - Enabled
+  # win: ai.disable-copilot-policy
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\WindowsCopilot', value: 'TurnOffWindowsCopilot', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot', value: 'TurnOffWindowsCopilot', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\WindowsCopilot', value: 'TurnOffWindowsCopilot', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+
+  # === Hide Copilot taskbar button - Enabled
+  # win: ai.disable-copilot-policy
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'ShowCopilotButton', type: REG_DWORD, data: '0', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'ShowCopilotButton', type: REG_DWORD, data: '0', option: 'remove-winsxs-ai'}
+
+  # === Block Copilot shell extension - Enabled (requires TrustedInstaller)
+  # win: ai.disable-copilot-policy
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked', value: '{CB3B0003-8088-4EDE-8769-8B354AB2FF8C}', type: REG_SZ, data: '', option: 'remove-winsxs-ai'}
+
+  # === Disable Recall / AI Data Analysis - Enabled (HKLM DisableAIDataAnalysis already set in win-settings.yml)
+  # win: ai.disable-recall-policy
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\WindowsAI', value: 'AllowRecallEnablement', type: REG_DWORD, data: '0', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\WindowsAI', value: 'TurnOffSavingSnapshots', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableAIDataAnalysis', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableAIDataAnalysis', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsAI', value: 'TurnOffSavingSnapshots', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\WindowsAI', value: 'TurnOffSavingSnapshots', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+
+  # === Disable Click To Do - Enabled
+  # win: ai.disable-click-to-do
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}

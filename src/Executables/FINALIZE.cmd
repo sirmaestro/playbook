@@ -20,13 +20,13 @@ rmdir /s /q "%ProgramW6432%\\PCHealthCheck" >NUL 2>nul
 rmdir /s /q "%ProgramFiles(x86)%\WindowsInstallationAssistant" >NUL 2>nul
 
 if not defined w11 (
-	bcdedit /set description "ReviOS 10 %version%" >NUL 2>nul
-  reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v "Model"  /t REG_SZ /d "ReviOS 10 %version%" /f >NUL 2>nul
-  reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "RegisteredOrganization" /t REG_SZ /d "ReviOS 10 %version%" /f >NUL 2>nul
+	bcdedit /set description "WinDebloat 10 %version%" >NUL 2>nul
+  reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v "Model"  /t REG_SZ /d "WinDebloat 10 %version%" /f >NUL 2>nul
+  reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "RegisteredOrganization" /t REG_SZ /d "WinDebloat 10 %version%" /f >NUL 2>nul
 ) else (
-	bcdedit /set description "ReviOS 11 %version%" >NUL 2>nul
-  reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v "Model"  /t REG_SZ /d "ReviOS 11 %version%" /f >NUL 2>nul
-  reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "RegisteredOrganization" /t REG_SZ /d "ReviOS 11 %version%" /f >NUL 2>nul
+	bcdedit /set description "WinDebloat 11 %version%" >NUL 2>nul
+  reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v "Model"  /t REG_SZ /d "WinDebloat 11 %version%" /f >NUL 2>nul
+  reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "RegisteredOrganization" /t REG_SZ /d "WinDebloat 11 %version%" /f >NUL 2>nul
 )
 
 

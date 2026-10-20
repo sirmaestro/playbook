@@ -1,0 +1,29 @@
+---
+title: Configure Security -> WinDebloat
+description: Security tweaks ported from the WinDebloat catalog (catalog/sec.psd1)
+privilege: TrustedInstaller
+actions:
+
+  # === Smart App Control - Off
+  # win: sec.smart-app-control-off
+  # ------> One-way: once Off it cannot be turned back on without a reset/reinstall (OS behaviour). Requires reboot.
+  # ------> Also set off by the disable-defender CBS package; this standalone key applies independently.
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy', value: 'VerifiedAndReputablePolicyState', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # === Block "Allow my organization to manage my device" workplace-join prompts - Enabled
+  # win: sec.workplace-join-prompts-off
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WorkplaceJoin', value: 'BlockAADWorkplaceJoin', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\WorkplaceJoin', value: 'BlockAADWorkplaceJoin', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Policies\Microsoft\Windows\WorkplaceJoin', value: 'BlockAADWorkplaceJoin', type: REG_DWORD, data: '1'}
+
+  # === PowerShell execution policy - RemoteSigned (user and machine)
+  # win: sec.ps-execution-policy
+  # ------> Windows default is Restricted.
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell', value: 'ExecutionPolicy', type: REG_SZ, data: 'RemoteSigned', option: 'windebloat-ps-remotesigned'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell', value: 'ExecutionPolicy', type: REG_SZ, data: 'RemoteSigned', option: 'windebloat-ps-remotesigned'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell', value: 'ExecutionPolicy', type: REG_SZ, data: 'RemoteSigned', option: 'windebloat-ps-remotesigned'}
+
+  # === Refresh trusted root certificates from Windows Update - One-shot
+  # win: sec.refresh-root-certs
+  # ------> Ported from Script sec-RefreshRootCerts. Does NOT set DisableRootAutoUpdate (the MS Store needs it).
+  - !powerShell: {command: "$sst = Join-Path $env:TEMP 'windebloat-roots.sst'; & certutil.exe -generateSSTFromWU $sst; if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $sst)) { Import-Certificate -FilePath $sst -CertStoreLocation 'Cert:\\LocalMachine\\Root'; Import-Certificate -FilePath $sst -CertStoreLocation 'Cert:\\LocalMachine\\AuthRoot' }; Remove-Item -LiteralPath $sst -Force -ErrorAction SilentlyContinue"}

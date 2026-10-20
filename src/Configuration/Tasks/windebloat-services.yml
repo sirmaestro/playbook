@@ -1,0 +1,15 @@
+---
+title: WinDebloat Services
+description: Additional service startup changes ported from the WinDebloat catalog (catalog/svc.psd1). Only entries absent from the base playbook's Tasks/services.yml are included here.
+privilege: TrustedInstaller
+actions:
+
+  - !writeStatus: {status: "Configuring services (WinDebloat)"}
+
+  # === Remote Registry - Disabled
+  # win: svc.remote-registry  (breaks remote regedit/admin tools; default Disabled on Win11 client, Manual on some SKUs)
+  - !service: {name: 'RemoteRegistry', operation: change, startup: 4}
+
+  # === Windows AI Fabric Service - Disabled
+  # win: svc.ai-fabric  (complements the AI removal group; default Automatic; N/A when the service is absent)
+  - !service: {name: 'WSAIFabricSvc', operation: change, startup: 4, option: 'remove-winsxs-ai'}

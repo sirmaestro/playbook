@@ -12,7 +12,6 @@ actions:
     weight: 48
     command: >-
        $packages = @(
-        'Microsoft.Windows.SecureAssessmentBrowser',
         'Microsoft.Windows.PeopleExperienceHost',
         'Microsoft.WindowsCamera',
         'MicrosoftWindows.Client.WebExperience',
@@ -53,12 +52,12 @@ actions:
         'OutlookPWA',
         'Microsoft.Microsoft3DViewer',
         'Microsoft.Advertising',
-        'MixedReality.Portal',
+        'Microsoft.MixedReality.Portal',
         'Microsoft.MSPaint', # Paint 3D
         'Microsoft.StartExperiencesApp'
         );
         
-        & (Join-Path $env:ProgramFiles 'Revision Tool\revitool.exe') appx --all-users --remove ($packages -join ',')
+        & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove ($packages -join ',')
 
   - !writeStatus: {status: "Removing Photos"}
   - !powerShell:
@@ -68,7 +67,7 @@ actions:
     errorAction: Ignore
     weight: 10
     command: >-
-      & (Join-Path $env:ProgramFiles 'Revision Tool\revitool.exe') appx --all-users --remove 'Microsoft.Windows.Photos'
+      & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove 'Microsoft.Windows.Photos'
 
   - !writeStatus: {status: "Removing Dev Home", option: "remove-appx-devhome"}
   - !powerShell:
@@ -78,7 +77,7 @@ actions:
     errorAction: Ignore
     weight: 10
     command: >-
-      & (Join-Path $env:ProgramFiles 'Revision Tool\revitool.exe') appx --all-users --remove 'Microsoft.Windows.DevHome'
+      & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove 'Microsoft.Windows.DevHome'
 
   - !writeStatus: {status: "Removing Your Phone", option: "remove-appx-yourphone"}
   - !powerShell:
@@ -92,14 +91,27 @@ actions:
         'Microsoft.YourPhone',
         'MicrosoftWindows.CrossDevice'
       );
-      & (Join-Path $env:ProgramFiles 'Revision Tool\revitool.exe') appx --all-users --remove ($packages -join ',')
+      & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove ($packages -join ',')
+
+  # Windows Security app. Only when Defender is disabled: with Defender on it is the UI for Defender, firewall and
+  # device security. Re-provisioning is already blocked by its Deprovisioned key (registry/misc/deprovisioned-apps.yml).
+  # Inbox package flagged NonRemovable; errorAction Ignore in case wdtool can't strip it on a given build.
+  - !writeStatus: {status: "Removing Windows Security app", option: "disable-defender"}
+  - !powerShell:
+    option: "disable-defender"
+    wait: true
+    exeDir: true
+    errorAction: Ignore
+    weight: 10
+    command: >-
+      & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove 'Microsoft.SecHealthUI'
 
   # https://github.com/meetrevision/playbook/issues/219
-  # When the network is available, revitool installs the latest VCLibs packages; otherwise, it bundles and installs the recent version of VCLibs packages offline (useful during oobe).
+  # When the network is available, wdtool installs the latest VCLibs packages; otherwise, it bundles and installs the recent version of VCLibs packages offline (useful during oobe).
   - !writeStatus: {status: "Restoring VCLibs"}
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "msstore-apps --id 9NBLGGH3FRZM,9NBLGGH4RV3K -r RP" # 9NBLGGH3FRZM - Desktop; 9NBLGGH4RV3K - UWPDesktop.
     runas: currentUserElevated
     wait: true

@@ -1,0 +1,10 @@
+---
+title: Configure Misc -> WinDebloat Edge
+description: Edge registry tweaks ported from the WinDebloat catalog (catalog/edge.psd1) not already set by the playbook. The EdgeUpdate Install/DoNotUpdate policies are already in registry/misc/fixes.yml.
+privilege: TrustedInstaller
+actions:
+
+  # === Do not create a Microsoft Edge desktop shortcut on install/update - Enabled
+  # win: edge.no-desktop-shortcut
+  # ------> Ungated, matching the existing (ungated) EdgeUpdate policy block in registry/misc/fixes.yml.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'CreateDesktopShortcutDefault', type: REG_DWORD, data: '0'}

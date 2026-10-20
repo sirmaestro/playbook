@@ -1,0 +1,57 @@
+---
+title: WinDebloat Scheduled Tasks
+description: Scheduled-task disables ported from the WinDebloat catalog (catalog/task.psd1). Only task members absent from the base playbook (FINALIZE.cmd schtasks block, final.yml Office wildcard, services.yml UCPD velocity) are included here.
+privilege: TrustedInstaller
+actions:
+
+  - !writeStatus: {status: "Configuring scheduled tasks (WinDebloat)"}
+
+  # ------> Quoting follows services.yml (PowerShell single quotes, no trailing '\' on -TaskPath): a "\...\" path
+  # ------> ends in \" which escapes the closing quote on the powershell.exe command line (every task failed on the VM).
+  # ------> Tasks already stripped by system-components-removal (e.g. Feedback\Siuf) are skipped silently.
+
+  # win: task.application-experience  (AitAgent + Microsoft Compatibility Appraiser already disabled by FINALIZE.cmd; the remaining members are ported here)
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'ProgramDataUpdater' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'MareBackup' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'StartupAppTask' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'PcaPatchDbTask' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+
+  # win: task.disk-diagnostic  (DataCollector already disabled by FINALIZE.cmd; Resolver ported here)
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\DiskDiagnostic\\*' -TaskName 'Microsoft-Windows-DiskDiagnosticResolver' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+
+  # win: task.diagnosis-scheduled  (scheduled maintenance diagnostics)
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Diagnosis\\*' -TaskName 'Scheduled' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+
+  # win: task.feedback-siuf  (Windows feedback/SIUF upload tasks)
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -TaskName 'DmClient' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -TaskName 'DmClientOnScenarioDownload' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+
+  # win: task.sqm  (software quality metrics)
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\PI\\*' -TaskName 'Sqm-Tasks' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+
+  # win: task.windows-ai-recall  (Recall config/pipeline; N/A when Recall tasks absent)
+  # ------> On 26300 the Recall tasks live under WindowsAI\Recall\ (InitialConfiguration, PolicyConfiguration), so that folder is covered too.
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -TaskName 'RecallConfiguration' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -TaskName 'RecallPipeline' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\Recall\\*' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
+
+  # ======> VM validation pass (manual run of optimizerDuck & co. against an applied VM)
+
+  # === Microsoft Edge Update tasks (MicrosoftEdgeUpdateTaskMachineCore / ...UA) - Disabled
+  # ------> Gated on remove-edge: with Edge kept, these tasks are its only background updater. EdgeUpdate itself is kept
+  # ------> (WebView2 depends on it), and the edgeupdate service stays Manual (services.yml), so WebView2 still updates on demand.
+  # ------> No -TaskPath: the tasks live in the root folder and '\' would hit the trailing-backslash quoting bug noted above.
+  # ------> Names may carry a {GUID} suffix, hence the wildcard. EdgeUpdate re-registers them when it self-updates.
+  - !powerShell: {command: "Get-ScheduledTask -TaskName 'MicrosoftEdgeUpdateTaskMachine*' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-edge'}
+
+  # === SoftLanding tasks (\Microsoft\Windows\SoftLanding\<SID>\SoftLandingCreativeManagementTask) - Deleted
+  # ------> Per-user "tips/creative" tasks; the feature is already turned off by DisableSoftLanding (privacy/cloud-content.yml)
+  # ------> and SoftLandingEnabled=0 (privacy/cdm.yml). Unregister the tasks, then drop the empty per-SID folders and the parent.
+  - !powerShell:
+    errorAction: Ignore
+    command: >-
+      Get-ScheduledTask -TaskPath '\Microsoft\Windows\SoftLanding\*' -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false;
+      $svc = New-Object -ComObject Schedule.Service; $svc.Connect();
+      try { $parent = $svc.GetFolder('\Microsoft\Windows'); $sl = $parent.GetFolder('SoftLanding');
+      foreach ($f in @($sl.GetFolders(0))) { $sl.DeleteFolder($f.Name, 0) };
+      $parent.DeleteFolder('SoftLanding', 0) } catch {}

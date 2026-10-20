@@ -1,6 +1,6 @@
 ---
 title: Custom
-description: Custom Revision configuration
+description: Custom WinDebloat configuration
 privilege: Admin
 actions:
   
@@ -15,8 +15,11 @@ actions:
   # Uninstalling WinSxS packages before app-win32 could leave leftovers
   - !task: {path: 'Tasks\packages\win-sxs.yml'}
   - !task: {path: 'Tasks\packages\appx.yml'}
+  # WinDebloat: extra appx + capability removals
+  - !task: {path: 'Tasks\packages\windebloat-appx.yml'}
+  - !task: {path: 'Tasks\windebloat-features.yml'}
 
-  
+
   # Defender requires explorer to be running to disable certain protections, so that's why Explorer is terminated afterward
   - !taskKill: {name: "explorer", errorAction: Ignore}
   - !taskKill: {name: "SearchApp", errorAction: Ignore}
@@ -29,7 +32,10 @@ actions:
 
   - !task: {path: 'Tasks\software.yml'}
   - !task: {path: 'Tasks\services.yml'}
-  
+  # WinDebloat: extra service + scheduled-task disables
+  - !task: {path: 'Tasks\windebloat-services.yml'}
+  - !task: {path: 'Tasks\windebloat-scheduled-tasks.yml'}
+
   - !task: {path: 'Tasks\registry.yml'}
   - !task: {path: 'Tasks\revert.yml'}
   - !task: {path: 'Tasks\final.yml'}

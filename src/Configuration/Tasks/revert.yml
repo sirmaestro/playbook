@@ -74,8 +74,8 @@ actions:
   
   # Disabling core Superfetch components break 'defrag c: -b'
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance superfetch enable"
     wait: true
     runas: currentUserElevated
@@ -90,7 +90,7 @@ actions:
   # OneDrive workaround
   - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\OneDrive', value: 'DisableFileSyncNGSC', operation: delete}
 
-  # ReviOS manually disables all the things that RestrictCommunication does (except DisableRootAutoUpdate and AllowWindowsEntitlementReactivation, DisableWindowsUpdateAccess)
+  # The playbook manually disables all the things that RestrictCommunication does (except DisableRootAutoUpdate and AllowWindowsEntitlementReactivation, DisableWindowsUpdateAccess)
   - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\InternetManagement', value: 'RestrictCommunication', operation: delete}
   - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\InternetManagement', value: 'RestrictCommunication', operation: delete}
 
@@ -109,10 +109,10 @@ actions:
   - !registryKey: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Biometrics', operation: delete}
 
   # Fix KGL mismatch in Xbox Game Bar
-  # Disabling background apps breaks Xbox Game Bar KGL update. We remove bloat anyway and it can be toggled in Revision Tool
+  # Disabling background apps breaks Xbox Game Bar KGL update. We remove bloat anyway and it can be toggled in WinDebloat Tool
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance background-apps enable"
     wait: true
     runas: currentUserElevated

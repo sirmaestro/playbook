@@ -1,0 +1,93 @@
+---
+title: APPX -> WinDebloat
+description: Additional Appx removals ported from the WinDebloat catalog (catalog/appx.psd1, ai.psd1) that are not already covered by packages/appx.yml
+privilege: TrustedInstaller
+actions:
+
+  # Appx packages WinDebloat removes that the playbook's packages/appx.yml does NOT already list.
+  # Removed for all users (provisioned + installed) via wdtool, matching appx.yml's idiom.
+  - !writeStatus: {status: "Removing Appx Packages (WinDebloat)"}
+  - !powerShell:
+    wait: true
+    exeDir: true
+    errorAction: Ignore
+    weight: 20
+    command: >-
+      $packages = @(
+        'Microsoft.WindowsTips',                 # win: appx.tips
+        'Microsoft.Office.Sway',                 # win: appx.onenote / appx.legacy-win10-leftovers
+        'Microsoft.News',                        # win: appx.bing-news (alias of Microsoft.BingNews)
+        'Microsoft.Messaging',                   # win: appx.legacy-win10-leftovers
+        'Microsoft.OneConnect',                  # win: appx.legacy-win10-leftovers
+        'Microsoft.Wallet',                      # win: appx.legacy-win10-leftovers
+        'Microsoft.MSWallet',                    # win: appx.legacy-win10-leftovers
+        'Microsoft.Print3D',                     # win: appx.legacy-win10-leftovers
+        'Microsoft.3DBuilder',                   # win: appx.legacy-win10-leftovers
+        'Microsoft.MicrosoftJournal',            # win: appx.legacy-win10-leftovers
+        'Microsoft.NetworkSpeedTest',            # win: appx.legacy-win10-leftovers
+        'Microsoft.MinecraftUWP',                # win: appx.legacy-win10-leftovers
+        'Microsoft.BingFinance',                 # win: appx.bing-extras
+        'Microsoft.BingSports',                  # win: appx.bing-extras
+        'Microsoft.BingFoodAndDrink',            # win: appx.bing-extras
+        'Microsoft.BingHealthAndFitness',        # win: appx.bing-extras
+        'Microsoft.BingTravel',                  # win: appx.bing-extras
+        'Microsoft.BingTranslator',              # win: appx.bing-extras
+        'Microsoft.MicrosoftStart',              # win: appx.bing-extras
+        'Microsoft.M365Companions',              # win: appx.m365-companions
+        # win: appx.third-party-promos (OEM/sponsored stubs; asterisks stripped - wdtool matches by name)
+        'Drawboard.DrawboardPDF',
+        'Disney.37853FC22B2CE',
+        'Amazon.com.Amazon',
+        '4DF9E0F8.Netflix',
+        'BytedancePte.Ltd.TikTok',
+        'king.com.CandyCrushSaga',
+        'king.com.CandyCrushSodaSaga',
+        'king.com.BubbleWitch3Saga',
+        'AmazonVideo.PrimeVideo',
+        'Facebook.Instagram',
+        'FACEBOOK.FACEBOOK',
+        '7EE7776C.LinkedInforWindows',
+        'Flipboard',
+        'iHeartRadio',
+        'PandoraMediaInc',
+        'TuneInRadio',
+        'Duolingo-LearnLanguagesforFree',
+        'PicsArt-PhotoStudio',
+        'WinZipUniversal',
+        'AdobeSystemsIncorporated.AdobePhotoshopExpress',
+        'OneCalendar',
+        'NYTCrossword',
+        'MarchofEmpires',
+        'flaregamesGmbH.RoyalRevolt',
+        'Asphalt8Airborne',
+        'FarmVille2CountryEscape',
+        'HiddenCity',
+        'CaesarsSlotsFreeCasino',
+        'COOKINGFEVER',
+        'DisneyMagicKingdoms',
+        'PhototasticCollage',
+        'AutodeskSketchBook',
+        'PolarrPhotoEditorAcademicEdition',
+        'Sidia.LiveWallpaper',
+        'HULULLC.HULUPLUS',
+        'SlingTV',
+        'DolbyLaboratories.DolbyAccess'
+        );
+        & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove ($packages -join ',')
+
+  # AI Copilot provider appx not covered by app-win32.yml's 'Microsoft.Copilot' fallback.
+  # Gated behind the same remove-winsxs-ai option as the playbook's existing Copilot appx removal.
+  - !writeStatus: {status: "Removing Copilot providers (WinDebloat)", option: 'remove-winsxs-ai'}
+  - !powerShell:
+    option: 'remove-winsxs-ai'
+    wait: true
+    exeDir: true
+    errorAction: Ignore
+    weight: 10
+    command: >-
+      $packages = @(
+        'Microsoft.Windows.AIHub',               # win: appx.windows-aihub
+        'Microsoft.Windows.Ai.Copilot.Provider', # win: ai.remove-copilot-appx
+        'MicrosoftWindows.Client.CoPilot'        # win: ai.remove-copilot-appx
+        );
+        & (Join-Path $env:ProgramFiles 'WinDebloat Tool\wdtool.exe') appx --all-users --remove ($packages -join ',')

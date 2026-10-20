@@ -1,0 +1,52 @@
+---
+title: WinDebloat - Optional features and capabilities
+description: Remove Windows optional capabilities (ported from the WinDebloat feat. catalog)
+privilege: TrustedInstaller
+actions:
+
+  # NOTE: optional-features.yml (DISM-FEATURES.ps1) is NOT wired into main.yml/registry.yml,
+  # so capabilities are removed here with Remove-WindowsCapability directly. The WinDebloat
+  # engine matches a capability by name prefix (Get-WindowsCapability | Where Name -like 'X*'),
+  # so we mirror that behaviour instead of passing a bare -Name (which needs the version suffix).
+
+  # === Remove Internet Explorer capability - NotPresent
+  # win: feat.internet-explorer-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'Browser.InternetExplorer*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"
+
+  # === Remove PowerShell ISE capability - NotPresent
+  # win: feat.powershell-ise-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'Microsoft.Windows.PowerShell.ISE*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"
+
+  # === Remove legacy Quick Assist capability - NotPresent
+  # win: feat.quick-assist-legacy-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'App.Support.QuickAssist*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"
+
+  # === Remove Steps Recorder capability - NotPresent
+  # win: feat.steps-recorder-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'App.StepsRecorder*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"
+
+  # === Remove WordPad capability - NotPresent
+  # win: feat.wordpad-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'Microsoft.Windows.WordPad*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"
+
+  # === Remove legacy Win32 Notepad capability - NotPresent
+  # win: feat.notepad-legacy-capability
+  - !powerShell:
+    option: 'windebloat-remove-capabilities'
+    errorAction: Ignore
+    command: "Get-WindowsCapability -Online | Where-Object { $_.Name -like 'Microsoft.Windows.Notepad*' -and $_.State -eq 'Installed' } | Remove-WindowsCapability -Online | Out-Null"

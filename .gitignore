@@ -1,2 +1,10 @@
 *.apbx
-RevisionTool-Setup.exe
+WinDebloatTool-Setup.exe
+
+# debloat-tool build outputs (src/.gitignore covers the Flutter tree)
+debloat-tool/wdtool.exe
+debloat-tool/revitool_native.dll
+debloat-tool/CodeDependencies.iss
+debloat-tool/InnoDependencyInstaller/
+debloat-tool/src/additionals/packages/appx/*.appx
+debloat-tool/src/additionals/packages/appx/*.msix

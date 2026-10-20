@@ -1,6 +1,6 @@
 ---
 title: Registry
-description: Revision registry configuration
+description: WinDebloat registry configuration
 privilege: TrustedInstaller
 actions: 
   - !writeStatus: {status: "Tweaking registry"}
@@ -65,4 +65,15 @@ actions:
   - !task: {path: 'Tasks\registry\misc\enable-audio-communications-do-nothing.yml'}
   - !task: {path: 'Tasks\registry\misc\fixes.yml'}
   - !task: {path: 'Tasks\registry\misc\msi-installer-in-safe-mode.yml'}
+
+  # === WinDebloat extension (ported from windows11-debloat; see docs/windebloat-port-status.md) ===
+  - !writeStatus: {status: "Configuring WinDebloat tweaks"}
+  - !task: {path: 'Tasks\registry\privacy\windebloat-privacy.yml'}
+  - !task: {path: 'Tasks\registry\security\windebloat-security.yml'}
+  - !task: {path: 'Tasks\registry\security\windebloat-ai.yml'}
+  - !task: {path: 'Tasks\registry\system\windebloat-performance.yml'}
+  - !task: {path: 'Tasks\registry\system\windebloat-network.yml'}
+  - !task: {path: 'Tasks\registry\explorer\windebloat-shell.yml'}
+  - !task: {path: 'Tasks\registry\misc\windebloat-misc.yml'}
+  - !task: {path: 'Tasks\registry\misc\windebloat-edge.yml'}
 

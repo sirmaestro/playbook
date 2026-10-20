@@ -49,7 +49,7 @@ function New-CustomTheme {
     }
     
     $wallpaperPath = $Config['WallpaperPath']
-    $themeExportPath = if ($Config.ContainsKey('ThemeExportPath')) { $Config['ThemeExportPath'] } else { "$env:SystemRoot\Resources\Themes\revi.theme" }
+    $themeExportPath = if ($Config.ContainsKey('ThemeExportPath')) { $Config['ThemeExportPath'] } else { "$env:SystemRoot\Resources\Themes\windebloat.theme" }
     $systemMode = if ($Config.ContainsKey('SystemMode')) { $Config['SystemMode'] } else { 'Dark' }
     $appMode = if ($Config.ContainsKey('AppMode')) { $Config['AppMode'] } else { 'Dark' }
     

@@ -8,22 +8,154 @@ env:
   FILENAME: 'Revi-PB-${{ github.event.workflow_run.started_at }}.apbx'
 
 jobs:
-  build:
+  # WinDebloat Tool (debloat-tool/, a GPL-3.0 fork of Revision Tool) is built from this repo and
+  # bundled into the playbook; nothing is downloaded from meetrevision.
+  build-tool:
+    name: Build WinDebloat Tool
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+    defaults:
+      run:
+        working-directory: debloat-tool/src
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: 'main'
 
       - name: Set version
         id: set_version
-        run: |
-          # Get current date in "YY.MM" format
-          CURRENT_DATE=$(date +%y.%m)
-          echo "VERSION=${CURRENT_DATE}" >> $GITHUB_ENV
+        # Same YY.MM scheme as the playbook so the tool's self-updater can compare release tags.
+        run: echo "version=$(date +%y.%m)" >> $GITHUB_OUTPUT
         shell: bash
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          pub-cache: true
+          pub-cache-key: 'flutter-pub-${{ runner.os }}-${{ hashFiles(''debloat-tool/src/pubspec.lock'') }}'
+
+      # FRB output cache ──────────────────────────────────────────────
+      - name: Restore FRB output cache
+        id: frb-output
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            debloat-tool/src/packages/revitool_native/lib/src/rust/
+            debloat-tool/src/packages/revitool_native/rust/src/frb_generated.rs
+          key: ${{ runner.os }}-frb-output-${{ hashFiles('debloat-tool/src/packages/revitool_native/rust/src/api/**', 'debloat-tool/src/packages/revitool_native/pubspec.yaml', 'debloat-tool/src/packages/revitool_native/rust/Cargo.lock') }}
+
+      - name: Restore FRB codegen binary
+        if: steps.frb-output.outputs.cache-hit != 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/flutter_rust_bridge_codegen.exe
+          key: ${{ runner.os }}-frb-bin-${{ hashFiles('debloat-tool/src/packages/revitool_native/pubspec.yaml', 'debloat-tool/src/packages/revitool_native/rust/Cargo.lock') }}
+
+      - name: Install flutter_rust_bridge_codegen
+        if: steps.frb-output.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $targetVer = (Get-Content packages/revitool_native/pubspec.yaml | Select-String 'flutter_rust_bridge:\s*([\d\.]+)').Matches.Groups[1].Value
+          $currentVer = if (Get-Command flutter_rust_bridge_codegen -ErrorAction SilentlyContinue) {
+            ((flutter_rust_bridge_codegen --version) -split ' ')[1]
+          } else { $null }
+          if ($currentVer -ne $targetVer) {
+            cargo install flutter_rust_bridge_codegen --version $targetVer --locked
+          }
+
+      - name: Generate Rust bridge code
+        if: steps.frb-output.outputs.cache-hit != 'true'
+        run: dart run melos run frb
+
+      - name: Save FRB output cache
+        if: steps.frb-output.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            debloat-tool/src/packages/revitool_native/lib/src/rust/
+            debloat-tool/src/packages/revitool_native/rust/src/frb_generated.rs
+          key: ${{ runner.os }}-frb-output-${{ hashFiles('debloat-tool/src/packages/revitool_native/rust/src/api/**', 'debloat-tool/src/packages/revitool_native/pubspec.yaml', 'debloat-tool/src/packages/revitool_native/rust/Cargo.lock') }}
+
+      # Build ──────────────────────────────────────────────────────────
+      - name: Bump MyAppVersion in Inno Setup
+        working-directory: debloat-tool
+        shell: pwsh
+        run: |
+          (Get-Content -Path "inno-setup.iss") -replace '#define MyAppVersion "[\d\.]+"', "#define MyAppVersion `"${{ steps.set_version.outputs.version }}`"" | Set-Content -Path "inno-setup.iss"
+
+      - name: Compile C code
+        run: dart run melos run compile:c
+
+      - name: Verify pinned WinSxS packages
+        run: dart run melos run bundle:winsxs
+
+      - name: Cache build_runner
+        uses: actions/cache@v6
+        with:
+          path: debloat-tool/src/.dart_tool/build
+          key: ${{ runner.os }}-build-runner-${{ hashFiles('debloat-tool/src/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-runner-
+
+      - name: Run code generation
+        run: dart run melos run codegen
+
+      - name: Cache Cargo & Rust target
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            debloat-tool/src/packages/revitool_native/rust/target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('debloat-tool/src/packages/revitool_native/rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+
+      - name: Build wdtool CLI
+        env:
+          APP_VERSION: ${{ steps.set_version.outputs.version }}
+        run: dart run melos run build:cli
+
+      - name: Download bundled AppX packages
+        run: dart run melos run bundle:appx
+
+      - name: Build wdtool GUI
+        run: flutter build windows --build-name=${{ steps.set_version.outputs.version }} --build-number=1 --obfuscate --split-debug-info=/symbols --dart-define=APP_VERSION=${{ steps.set_version.outputs.version }}
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+        shell: powershell
+
+      - name: Build installer
+        working-directory: debloat-tool
+        shell: cmd
+        run: |
+          git clone https://github.com/DomGries/InnoDependencyInstaller
+          copy InnoDependencyInstaller\CodeDependencies.iss .
+          "%programfiles(x86)%\Inno Setup 6\iscc.exe" "inno-setup.iss"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: WinDebloatTool-Setup
+          path: debloat-tool/WinDebloatTool-Setup.exe
+          if-no-files-found: error
+
+  build:
+    needs: build-tool
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.build-tool.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: 'main'
 
       - name: Update version
         run: |
@@ -36,22 +168,15 @@ jobs:
           (Get-Content -Path $finalizeCMDPath) -replace 'set version=.+', "set version=$version" | Set-Content -Path $finalizeCMDPath
         shell: pwsh
 
-      - name: Fetch latest RevisionTool-Setup.exe (bundled fallback)
+      - name: Bundle WinDebloat Tool installer
+        uses: actions/download-artifact@v8
+        with:
+          name: WinDebloatTool-Setup
+          path: src/Executables
+
+      - name: Hash WinDebloat Tool installer
         run: |
-          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/meetrevision/revision-tool/releases/latest'
-          $version = $release.tag_name
-          $asset = $release.assets | Where-Object { $_.name -eq 'RevisionTool-Setup.exe' } | Select-Object -First 1
-          if (-not $asset) { throw 'RevisionTool-Setup.exe asset not found in latest revision-tool release' }
-
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile 'src\Executables\RevisionTool-Setup.exe' -UseBasicParsing
-
-          if ($asset.digest -like 'sha256:*') {
-            $expected = $asset.digest.Substring('sha256:'.Length).ToUpper()
-            $actual = (Get-FileHash -Algorithm SHA256 -Path 'src\Executables\RevisionTool-Setup.exe').Hash
-            if ($actual -ne $expected) { throw "SHA256 mismatch for RevisionTool-Setup.exe (expected $expected, got $actual)" }
-          }
-          echo "REVISION_TOOL_SHA256=$((Get-FileHash -Algorithm SHA256 -Path 'src\Executables\RevisionTool-Setup.exe').Hash)" >> $env:GITHUB_ENV
-          echo "REVISION_TOOL_VERSION=$version" >> $env:GITHUB_ENV
+          echo "TOOL_SHA256=$((Get-FileHash -Algorithm SHA256 -Path 'src\Executables\WinDebloatTool-Setup.exe').Hash)" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Archive content
@@ -76,10 +201,18 @@ jobs:
           body: |
             # Download Link ✨
 
-            If you would like to support Revision, kindly download the Playbook from the provided link below.
-
-            📌Link: 
+            📌Link:
 
             SHA256: `${{ env.HASH }}`
 
-            Bundled Revision Tool version: [${{ env.REVISION_TOOL_VERSION }}](https://github.com/meetrevision/revision-tool/releases/tag/${{ env.REVISION_TOOL_VERSION }}) (SHA256: `${{ env.REVISION_TOOL_SHA256 }}`)
+            Bundled WinDebloat Tool ${{ env.VERSION }} (SHA256: `${{ env.TOOL_SHA256 }}`), built from `debloat-tool/` in this release's commit.
+
+      # The tool's self-updater looks for this asset name on the latest release.
+      - name: Release WinDebloat Tool installer
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: src/Executables/WinDebloatTool-Setup.exe
+          asset_name: WinDebloatTool-Setup.exe
+          tag: ${{ env.VERSION }}
+          overwrite: true

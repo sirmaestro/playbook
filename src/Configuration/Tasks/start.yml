@@ -1,6 +1,6 @@
 ---
 title: Initialization
-description: Copies Revision folders/files, and configures some initial settings
+description: Copies WinDebloat folders/files, and configures some initial settings
 privilege: TrustedInstaller
 actions:
   
@@ -38,26 +38,17 @@ actions:
     exe: "vc_redist.x64.exe"
     args: '/quiet /norestart'
 
-  - !writeStatus: {status: 'Installing Revision Tool'}
-  - !download: 
-    url: 'https://github.com/meetrevision/revision-tool/releases/latest/download/RevisionTool-Setup.exe'
-    destination: "RevisionTool-Setup-Latest.exe"
-    overwrite: true
-    errorAction: Log
+  # ------> WinDebloat Tool (debloat-tool/) is built by CI from the same commit and bundled here;
+  # ------> nothing is downloaded, so the tool always matches this playbook version.
+  - !writeStatus: {status: 'Installing WinDebloat Tool'}
   - !powerShell:
     exeDir: true
     wait: true
     errorAction: Halt
     weight: 50
     command: >-
-      $installer = if (Test-Path -LiteralPath '.\RevisionTool-Setup-Latest.exe') {
-        '.\RevisionTool-Setup-Latest.exe'
-      } elseif (Test-Path -LiteralPath '.\RevisionTool-Setup.exe') {
-        '.\RevisionTool-Setup.exe'
-      } else {
-        throw 'No Revision Tool installer was found.'
-      };
-      Start-Process -FilePath $installer -ArgumentList '/VERYSILENT /TASKS="desktopicon"' -Wait -WindowStyle Hidden
+      if (-not (Test-Path -LiteralPath '.\WinDebloatTool-Setup.exe')) { throw 'WinDebloatTool-Setup.exe is missing from Executables.' };
+      Start-Process -FilePath '.\WinDebloatTool-Setup.exe' -ArgumentList '/VERYSILENT /TASKS="desktopicon"' -Wait -WindowStyle Hidden
 
   - !writeStatus: {status: "Optimizing PowerShell"}
   - !run:
@@ -68,8 +59,8 @@ actions:
 
   - !writeStatus: {status: "Configuring a power plan"}
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance powerplan enable"
     wait: true
     runas: currentUserElevated

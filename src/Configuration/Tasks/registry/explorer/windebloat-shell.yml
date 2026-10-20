@@ -1,0 +1,104 @@
+---
+title: Configure WinDebloat Shell/UI tweaks
+description: WinDebloat Appearance / Shell / Start tweaks not already covered by the playbook
+privilege: TrustedInstaller
+actions:
+
+  # ==================
+  # === Appearance ===
+  # ==================
+
+  # === Disable startup sound (LogonUI BootAnimation + EditionOverrides) - Disabled
+  # win: look.startup-sound-off
+  # ------> EnableFirstLogonAnimation / Policies\System\DisableStartupSound already set in registry\system\logon.yml (skipped).
+  # ------> These two Winhance-sourced HKLM values are the remaining, not-yet-covered part.
+  - !registryValue: {path: 'HKLM\Software\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\BootAnimation', value: 'DisableStartupSound', type: REG_DWORD, data: '1', option: 'windebloat-quiet-shell'}
+  - !registryValue: {path: 'HKLM\Software\Microsoft\Windows\CurrentVersion\EditionOverrides', value: 'UserSetting_DisableStartupSound', type: REG_DWORD, data: '1', option: 'windebloat-quiet-shell'}
+
+  # === Narrator audio ducking - Do nothing
+  # win: look.audio-ducking-off
+  # ------> UserDuckingPreference=3 already set in registry\misc\enable-audio-communications-do-nothing.yml (skipped).
+  # ------> DuckAudio=0 (Narrator) is the remaining, not-yet-covered part.
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Narrator\NoRoam', value: 'DuckAudio', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Narrator\NoRoam', value: 'DuckAudio', type: REG_DWORD, data: '0'}
+
+  # === Explorer startup delay - 0 ms
+  # win: look.menu-responsiveness
+  # ------> MenuShowDelay=0 / ActiveWndTrkTimeout=10 already set in registry\explorer\control-panel.yml (skipped).
+  # ------> StartupDelayInMSec=0 is the remaining, not-yet-covered part.
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize', value: 'StartupDelayInMSec', type: REG_DWORD, data: '0', option: 'windebloat-quiet-shell'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize', value: 'StartupDelayInMSec', type: REG_DWORD, data: '0', option: 'windebloat-quiet-shell'}
+
+  # ====================
+  # === Context menu ===
+  # ====================
+  # ------> Nothing ported. ctx.legacy-menu maps to the existing 'configure-lcm' option (context-menu.yml);
+  # ------> ctx.open-with-store-lookup-off is an exact duplicate of NoInternetOpenWith in registry\privacy\privacy.yml.
+
+  # =============
+  # === Shell ===
+  # =============
+
+  # === Show hidden files, folders and drives - Enabled
+  # win: shell.show-hidden-files
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Hidden', type: REG_DWORD, data: '1', option: 'windebloat-show-hidden-files'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Hidden', type: REG_DWORD, data: '1', option: 'windebloat-show-hidden-files'}
+
+  # === Remove Home and Gallery from the navigation pane - Hidden
+  # win: shell.hide-home-gallery
+  # ------> Pairs with LaunchTo=3 (Downloads, explorer.yml) so Explorer does not open to a hidden Home. Keys created if missing.
+  - !registryValue: {path: 'HKCU\Software\Classes\CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}', value: 'System.IsPinnedToNameSpaceTree', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Classes\CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}', value: 'System.IsPinnedToNameSpaceTree', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKCU\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}', value: 'System.IsPinnedToNameSpaceTree', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}', value: 'System.IsPinnedToNameSpaceTree', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+
+  # === Quick Access recent files, recommendations and cloud files - Off
+  # win: shell.recent-files-off
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowRecent', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowRecent', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowRecommendations', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowRecommendations', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowCloudFilesInQuickAccess', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowCloudFilesInQuickAccess', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+
+  # === Quick Access frequent folders - Off
+  # win: shell.frequent-folders-off
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowFrequent', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer', value: 'ShowFrequent', type: REG_DWORD, data: '0', option: 'windebloat-explorer-cleanup'}
+
+  # === Hide user folders (Desktop/Documents/Downloads/Music/Pictures/Videos) under This PC - Hidden
+  # win: shell.this-pc-folders-hide
+  # ------> HiddenByDefault=1 per known-folder GUID (HKLM + WOW6432Node twin). Catalog uses RequireKey:
+  # ------> set ONLY where the NameSpace\{GUID} key already exists, so a removed folder node is not re-registered.
+  - !powerShell:
+    option: 'windebloat-explorer-cleanup'
+    runas: trustedInstaller
+    command: |
+      $guids = @(
+        '{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}', # Desktop
+        '{D3162B92-9365-467A-956B-92703ACA08AF}', # Documents
+        '{088E3905-0323-4B02-9826-5D99428E115F}', # Downloads
+        '{3DFDF296-DBEC-4FB4-81D1-6A3438BCF4DE}', # Music
+        '{24AD3AD4-A569-4530-98E1-AB02F9417AA8}', # Pictures
+        '{F86FA3AB-70D2-4FC7-9C99-FCBF05467F3A}'  # Videos
+      )
+      $bases = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace'
+      )
+      foreach ($base in $bases) {
+        foreach ($g in $guids) {
+          $p = Join-Path $base $g
+          if (Test-Path $p) {
+            New-ItemProperty -Path $p -Name 'HiddenByDefault' -PropertyType DWord -Value 1 -Force | Out-Null
+          }
+        }
+      }
+
+  # =============
+  # === Start ===
+  # =============
+  # ------> Nothing ported. start.pinned-folders-hidden, start.recommendations-account-notifs-off,
+  # ------> start.taskbar-search-mode, start.task-view-off, start.widgets-off, start.chat-meetnow-off and
+  # ------> start.end-task are exact duplicates of existing start-menu.yml / taskbar.yml / explorer.yml entries.
+  # ------> start.cortana-cloud-search-off is a near-duplicate of search.yml except AllowCortana (CONFLICT, see docs/port/shell-ui.md).

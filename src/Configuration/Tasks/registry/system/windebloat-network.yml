@@ -1,0 +1,10 @@
+---
+title: configure-network
+description: WinDebloat network registry tweaks
+privilege: TrustedInstaller
+actions:
+
+  # === Prefer IPv4 over IPv6 - DisabledComponents=32
+  # win: net.ipv4-preferred
+  # -----> Prefer IPv4 over IPv6 without disabling IPv6 (Microsoft-advised over a full disable). Same value name as teredo/ipv6-disable: last writer wins.
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters', value: 'DisabledComponents', type: REG_DWORD, data: '32', option: 'windebloat-prefer-ipv4'}

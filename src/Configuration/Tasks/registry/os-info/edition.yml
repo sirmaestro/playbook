@@ -1,14 +1,17 @@
 ---
-title: revision-static-edition
-description: revision-static-edition
+title: windebloat-static-edition
+description: windebloat-static-edition
 privilege: TrustedInstaller
 actions:
 
-  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubManufacturer', type: REG_SZ, data: 'MeetRevision'}
-  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubstring', type: REG_SZ, data: 'Revision'}
-  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubVersion', type: REG_SZ, data: 'ReviOS'}
+  # ------> These are WinDebloat Tool's support marker: wdtool refuses every command (exit 55) unless
+  # ------> EditionSubManufacturer or EditionSubVersion is 'WinDebloat' (debloat-tool WinRegistryService.isSupported).
+  # ------> Keep this file first in main.yml so the marker exists before any wdtool call.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubManufacturer', type: REG_SZ, data: 'WinDebloat'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubstring', type: REG_SZ, data: 'WinDebloat'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion', value: 'EditionSubVersion', type: REG_SZ, data: 'WinDebloat'}
 
 
   # === Causes Network Sharing/Computer Name issues
-  # - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\ComputerName\ComputerName', value: 'ComputerName', type: REG_SZ, data: 'Revision-PC'}
-  # - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\ComputerName\ActiveComputerName', value: 'ComputerName', type: REG_SZ, data: 'Revision-PC'}
+  # - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\ComputerName\ComputerName', value: 'ComputerName', type: REG_SZ, data: 'WinDebloat-PC'}
+  # - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\ComputerName\ActiveComputerName', value: 'ComputerName', type: REG_SZ, data: 'WinDebloat-PC'}

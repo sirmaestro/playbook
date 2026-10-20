@@ -1,0 +1,56 @@
+---
+title: configure-windebloat-performance
+description: WinDebloat performance and gaming registry tweaks (ported from catalog perf.psd1 / game.psd1)
+privilege: TrustedInstaller
+actions:
+
+  # ======> MMCSS multimedia scheduler
+  # win: perf.mmcss-tuning  (NetworkThrottlingIndex lives in multimedia.yml; Games Priority uses the WH value 6)
+
+  # === MMCSS SystemResponsiveness - 10 (reserve 10% for background, 90% for multimedia)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile', value: 'SystemResponsiveness', type: REG_DWORD, data: '10', option: 'windebloat-mmcss'}
+
+  # === MMCSS NoLazyMode - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile', value: 'NoLazyMode', type: REG_DWORD, data: '1', option: 'windebloat-mmcss'}
+
+  # === MMCSS AlwaysOn - Enabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile', value: 'AlwaysOn', type: REG_DWORD, data: '1', option: 'windebloat-mmcss'}
+
+  # === MMCSS Games task - Priority 6, Scheduling High, SFIO High, GPU Priority 8
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'Priority', type: REG_DWORD, data: '6', option: 'windebloat-mmcss'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'Scheduling Category', type: REG_SZ, data: 'High', option: 'windebloat-mmcss'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'SFIO Priority', type: REG_SZ, data: 'High', option: 'windebloat-mmcss'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'GPU Priority', type: REG_DWORD, data: '8', option: 'windebloat-mmcss'}
+
+  # ==============
+  # === Gaming ===
+  # ==============
+
+  # win: game.gamebar-off  (ShowStartupPanel intentionally NOT set here - playbook gates it behind remove-appx-xbox in win-sxs.yml)
+
+  # === Xbox Game Bar - Off
+  - !registryValue: {path: 'HKCU\System\GameConfigStore', value: 'GameBarEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+  - !registryValue: {path: 'HKU\.DEFAULT\System\GameConfigStore', value: 'GameBarEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+
+  # === Game Bar - Use Nexus host - Off
+  - !registryValue: {path: 'HKCU\Software\Microsoft\GameBar', value: 'UseNexusForGameBarEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\GameBar', value: 'UseNexusForGameBarEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+
+  # win: game.gamedvr-off  (GameDVR_Enabled already in win-settings.yml; AppCaptureEnabled intentionally NOT set here - #74 gating in win-settings.yml)
+
+  # === Game DVR historical (background) capture - Off
+  - !registryValue: {path: 'HKCU\System\GameConfigStore', value: 'GameDVR_HistoricalCaptureEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+  - !registryValue: {path: 'HKU\.DEFAULT\System\GameConfigStore', value: 'GameDVR_HistoricalCaptureEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\GameDVR', value: 'HistoricalCaptureEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\GameDVR', value: 'HistoricalCaptureEnabled', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+
+  # === Allow Game DVR (policy) - Disabled
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR', value: 'AllowGameDVR', type: REG_DWORD, data: '0', option: 'remove-appx-xbox'}
+
+  # win: game.game-mode  (Game Mode on - Windows default)
+
+  # === Auto Game Mode - On
+  - !registryValue: {path: 'HKCU\Software\Microsoft\GameBar', value: 'AllowAutoGameMode', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\GameBar', value: 'AllowAutoGameMode', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\GameBar', value: 'AutoGameModeEnabled', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\GameBar', value: 'AutoGameModeEnabled', type: REG_DWORD, data: '1'}

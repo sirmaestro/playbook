@@ -6,8 +6,8 @@ actions:
 
   # === Hide stripped components from Settings
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: 'registry hide-page --value "cortana,privacy-feedback,windowsinsider,home"'
     wait: true
     runas: currentUserElevated
@@ -73,9 +73,10 @@ actions:
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SystemPaneSuggestionsEnabled', type: REG_DWORD, data: '0'}
 
   # ======> Clipboard
-  # === Clipboard History - Off
-  - !registryValue: {path: 'HKCU\Software\Microsoft\Clipboard', value: 'EnableClipboardHistory', type: REG_DWORD, data: '0'}
-  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Clipboard', value: 'EnableClipboardHistory', type: REG_DWORD, data: '0'}
+  # === Clipboard History - On
+  # ------> Fork: flipped from Off (upstream default) at the maintainer's request (Win+V history).
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Clipboard', value: 'EnableClipboardHistory', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Clipboard', value: 'EnableClipboardHistory', type: REG_DWORD, data: '1'}
 
   # === Allow Clipboard History - Enabled (default)
   # ------> Clipboard won't work if disabled.
@@ -183,8 +184,8 @@ actions:
 
   # === Resume - Off
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: 'registry hide-page --value "crossdevice"'
     wait: true
     runas: currentUserElevated
@@ -305,8 +306,8 @@ actions:
 
   # === Inking & typing personalization
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks personalization input-personalization disable"
     wait: true
     runas: currentUserElevated

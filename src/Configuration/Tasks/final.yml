@@ -1,19 +1,19 @@
 ---
 title: Configuration
-description: Applies some Revision configurations
+description: Applies some WinDebloat configurations
 privilege: TrustedInstaller
 actions:
 
   - !writeStatus: {status: "Optimizing NTFS"}
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance ntfs-last-access disable"
     wait: true
     runas: currentUserElevated
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance ntfs-8dot3-naming disable"
     wait: true
     runas: currentUserElevated
@@ -47,8 +47,8 @@ actions:
 
   # Alternative way to group services without breaking services like XboxGipSvc
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks performance service-grouping set recommended"
     wait: true
     runas: currentUserElevated
@@ -68,57 +68,13 @@ actions:
     option: "remove-appx-photos"
     weight: 150
 
-  - !cmd:
-    exeDir: true
-    command: 'robocopy "Wallpapers" "%systemroot%\Web\Wallpaper\MeetRevision\v2" /E /PURGE /IM /IT /NP'
-    ignoreErrors: true
-
-  - !powerShell:
-    command: '.\WALLPAPER.ps1 -Mode Desktop -ImagePath $env:systemroot\Web\Wallpaper\MeetRevision\v2\desktop.jpg'
-    exeDir: true
-    runas: currentUserElevated
-    option: "configure-wallpaper"
-    weight: 45
-
-  - !powerShell: 
-    command: '.\WALLPAPER.ps1 -Mode LockScreen -ImagePath $env:systemroot\Web\Wallpaper\MeetRevision\v2\lockscreen.jpg'
-    exeDir: true
-    runas: currentUserElevated
-    option: "configure-wallpaper"
-    weight: 45
-
-  - !powerShell:
-    command: 'Copy-Item -Path .\WALLPAPER.ps1 -Destination "$env:systemroot\Web\Wallpaper\MeetRevision" -Force'
-    exeDir: true
-    option: "configure-wallpaper"
-  
-  - !powerShell:
-    command: 'Copy-Item -Path .\WallpaperStartup.cmd -Destination "$env:systemroot\Web\Wallpaper\MeetRevision" -Force'
-    exeDir: true
-    option: "configure-wallpaper"
-
   # === Themes
 
   - !powerShell:
     command: '.\\Set-Theme.ps1 -Path (Join-Path $env:SystemRoot "Resources\\Themes\\dark.theme")'
     exeDir: true
     runas: currentUserElevated
-    option: "!configure-wallpaper"
-    options: ["configure-darkmode"]
-
-  - !powerShell:
-    command: ".\\Set-Theme.ps1 -New @{ WallpaperPath = (Join-Path $env:SystemRoot 'Web\\Wallpaper\\MeetRevision\\v2\\desktop.jpg'); ThemeExportPath = (Join-Path $env:SystemRoot 'Resources\\Themes\\revi.theme'); SystemMode = 'Light'; AppMode = 'Light' }"
-    exeDir: true
-    runas: currentUserElevated
-    option: "!configure-darkmode"
-    options: ["configure-wallpaper"]
-
-  - !powerShell:
-    command: ".\\Set-Theme.ps1 -New @{ WallpaperPath = (Join-Path $env:SystemRoot 'Web\\Wallpaper\\MeetRevision\\v2\\desktop.jpg'); ThemeExportPath = (Join-Path $env:SystemRoot 'Resources\\Themes\\revi.theme'); SystemMode = 'Dark'; AppMode = 'Dark' }"
-    exeDir: true
-    runas: currentUserElevated
     option: "configure-darkmode"
-    options: ["configure-wallpaper"]
 
 
   # Still necessary to set for W10
@@ -129,14 +85,6 @@ actions:
   - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize', value: 'SystemUsesLightTheme', type: REG_DWORD, data: '1', option: "!configure-darkmode", weight: 50}
 
 
-  - !registryValue: 
-    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'
-    value: 'RevisionWallpaperStartup'
-    type: REG_SZ
-    oobe: only
-    data: 'cmd /c "%SystemRoot%\Web\Wallpaper\MeetRevision\WallpaperStartup.cmd"'
-    option: "configure-wallpaper"
-    
   # Necessary to refresh start menu entries etc.
   - !appx: {operation: clearCache, name: '*Client.CBS*'}
   - !appx: {operation: clearCache, name: '*StartMenuExperienceHost*', option: "remove-pinned-items-startmenu"}
@@ -147,10 +95,10 @@ actions:
   - !run: 
     exe: "gpupdate.exe"
 
-  # Apply micro patches via Revision Tool in order to avoid new playbook releases for minor changes
+  # Apply micro patches via WinDebloat Tool in order to avoid new playbook releases for minor changes
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks patches"
     wait: true
     runas: currentUserElevated

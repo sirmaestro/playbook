@@ -4,35 +4,35 @@ description: configure-power-control
 privilege: TrustedInstaller
 actions:
 
-  # === Disable Hibernate via revitool
+  # === Disable Hibernate via wdtool
   # ------> Disabling hibernate improves system stability, fixes dual-boot and upgrade issues, and frees up disk space
   # ------> NOTE: It can cause overheating in sleep mode.
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks utilities hibernation disable"
     wait: true
     runas: currentUserElevated
     option: disable-hibernate
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks utilities fast-startup disable"
     wait: true
     runas: currentUserElevated
     option: disable-hibernate
 
-  # === Enable Hibernate via revitool
+  # === Enable Hibernate via wdtool
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks utilities hibernation enable"
     wait: true
     runas: currentUserElevated
     option: enable-hibernate
   - !run:
-    path: "%ProgramFiles%\\Revision Tool"
-    exe: "revitool.exe"
+    path: "%ProgramFiles%\\WinDebloat Tool"
+    exe: "wdtool.exe"
     args: "tweaks utilities fast-startup enable"
     wait: true
     runas: currentUserElevated

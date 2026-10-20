@@ -1,0 +1,35 @@
+---
+title: WinDebloat - Misc registry tweaks
+description: Misc registry tweaks ported from the WinDebloat misc. catalog
+privilege: TrustedInstaller
+actions:
+
+  # === Enable Win32 long paths - Enabled (requires reboot)
+  # win: misc.long-paths
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\FileSystem', value: 'LongPathsEnabled', type: REG_DWORD, data: '1'}
+
+  # === Narrator Win+Ctrl+Enter launch hotkey - Disabled
+  # win: misc.accessibility-hotkeys-off (Narrator action only; the StickyKeys/Filter/Toggle/Mouse/
+  #       HighContrast Flags values CONFLICT with control-panel.yml Flags=0 and are not ported)
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Narrator\NoRoam', value: 'WinEnterLaunchEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Narrator\NoRoam', value: 'WinEnterLaunchEnabled', type: REG_DWORD, data: '0'}
+
+  # === Regional formats - dd/MM/yyyy short date / Monday first / metric / "." decimal / "," list
+  # win: misc.regional-formats (preference item; values chosen by the WinDebloat author)
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'sShortDate', type: REG_SZ, data: 'dd/MM/yyyy', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'sDate', type: REG_SZ, data: '/', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'iDate', type: REG_SZ, data: '1', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'iFirstDayOfWeek', type: REG_SZ, data: '0', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'sDecimal', type: REG_SZ, data: '.', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'sList', type: REG_SZ, data: ',', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'iMeasure', type: REG_SZ, data: '0', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKCU\Control Panel\International', value: 'sMonDecimalSep', type: REG_SZ, data: '.', option: 'windebloat-regional-formats'}
+  # DEFAULT USER
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'sShortDate', type: REG_SZ, data: 'dd/MM/yyyy', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'sDate', type: REG_SZ, data: '/', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'iDate', type: REG_SZ, data: '1', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'iFirstDayOfWeek', type: REG_SZ, data: '0', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'sDecimal', type: REG_SZ, data: '.', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'sList', type: REG_SZ, data: ',', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'iMeasure', type: REG_SZ, data: '0', option: 'windebloat-regional-formats'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Control Panel\International', value: 'sMonDecimalSep', type: REG_SZ, data: '.', option: 'windebloat-regional-formats'}

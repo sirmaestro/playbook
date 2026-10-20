@@ -3,11 +3,11 @@ Write-Host 'Updating Microsoft Store apps...'
 # Add-AppPackage 'https://cdn.winget.microsoft.com/cache/source.msix' -ForceApplicationShutdown -Verbose
 $productName = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName
 Write-Host "Product Name: $productName"
-$path = Join-Path $env:ProgramFiles 'Revision Tool'
-$file = Join-Path $path 'revitool.exe'
+$path = Join-Path $env:ProgramFiles 'WinDebloat Tool'
+$file = Join-Path $path 'wdtool.exe'
 
 if (!(Test-Path $path) -or !(Test-Path $file)) {
-    Write-Host 'Revision Tool not found. Skipping update.'
+    Write-Host 'WinDebloat Tool not found. Skipping update.'
     exit 1
 }
 

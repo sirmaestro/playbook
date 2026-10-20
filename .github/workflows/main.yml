@@ -4,6 +4,10 @@ on:
   # Allow manual triggering
   workflow_dispatch:
 
+# Release creation/upload needs write access; the repo default GITHUB_TOKEN is read-only.
+permissions:
+  contents: write
+
 env:
   FILENAME: 'Revi-PB-${{ github.event.workflow_run.started_at }}.apbx'
 

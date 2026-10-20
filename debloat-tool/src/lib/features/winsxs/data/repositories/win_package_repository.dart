@@ -1,0 +1,29 @@
+import 'package:fast_immutable_collections/fast_immutable_collections.dart';
+
+import '../../domain/entities/win_package.dart';
+
+/// Package data operations. Returns domain entities, throws on failure.
+/// Only the service layer wraps calls in [Result].
+abstract interface class WinPackageRepository() {
+  void ensureDirectory(String path);
+
+  bool fileExists(String path);
+
+  void copyFile({required String sourcePath, required String targetPath});
+
+  String? findBundledPackage(WinPackageType type);
+
+  Future<IList<String>> fetchInstalledPackageNames(WinPackageType type);
+
+  Future<String> fetchSignatureUsage(String packagePath);
+
+  Future<void> addPackage(String packagePath);
+
+  Future<void> removePackages(WinPackageType type);
+
+  Future<void> removePackageByName(String packageName);
+
+  void deleteTempPackage(String packagePath);
+
+  bool isPackageInstalled(WinPackageType type);
+}

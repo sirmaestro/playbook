@@ -35,6 +35,50 @@ are unchanged to keep the diff against upstream reviewable.
 3. `dart run melos run bundle:winsxs` (also run by CI) fails on any missing, altered or unpinned cab.
 4. Test on the VM before releasing; CBS removals are not reversible.
 
+## Syncing with upstream Revision Tool
+
+`debloat-tool/` was imported with `git subtree add` **without `--squash`**, so upstream history is part
+of this repo and `git subtree pull` merges only new upstream commits on top of the fork's changes. Keep
+it that way: never squash a pull, and never re-add the folder.
+
+One-time setup:
+
+```
+git remote add revision-tool https://github.com/meetrevision/revision-tool.git
+```
+
+Each sync (clean working tree, from the repo root):
+
+```
+git fetch revision-tool
+git subtree pull --prefix=debloat-tool revision-tool main
+```
+
+If Git reports modifications you didn't make, it is line endings (the tree mixes CRLF- and LF-stored
+files and `core.autocrlf=true` re-normalizes them); prefix the command with `git -c core.autocrlf=false`.
+To take a single upstream fix instead: `git cherry-pick -X subtree=debloat-tool <commit>`.
+
+### Resolving conflicts
+
+Upstream edits to the files the fork deliberately changed will conflict. Keep the fork's side:
+
+| Upstream touches | Keep |
+|---|---|
+| `WinRegistryService.isSupported` / `isAmePlaybook` (ReviOS gate) | The WinDebloat marker + playbook `UniqueId` check |
+| `features/winsxs` download path (`api_cab_datasource.dart`, `release_*model.dart`, `WinPackageService.download`) | Bundled-only cabs; re-delete files that come back as modify/delete conflicts |
+| `.github/` | Keep deleted; port useful build-step changes by hand to the `build-tool` job in the root `.github/workflows/main.yml` |
+| i18n strings, links, `inno-setup.iss`, `windows/runner/*` | Fork names/links/AppId; rebrand any new strings that say Revision/ReviOS |
+| `tool_update_service.dart`, `network_endpoints.dart` | `sirmaestro/playbook` releases, asset picked by name |
+| `tool/bundle_winsxs.dart` | The offline pin verifier |
+
+### After every sync
+
+1. `grep -rn -i "meetrevision\|revi\.cc\|ReviOS" debloat-tool/src/lib` should only hit attribution
+   (`ProjectLinks.upstream`) and the `Revision-ReviOS-*` CBS package names.
+2. A new `WinPackageType` upstream needs its cab mirrored and pinned (below), or it fails with
+   "No bundled package found". Upstream cab updates are never picked up automatically.
+3. Run the CI build, then a VM apply; grep AME's `Output.txt` for `exit code: 55` (gate rejected).
+
 ## Building
 
 CI builds the tool in the `build-tool` job of the repo's [`.github/workflows/main.yml`](../.github/workflows/main.yml)

@@ -99,6 +99,34 @@ Some packages are protected Windows components and return `0x80070032` on per-us
 - `0x800b0110` from DISM = the CBS signing wall above, not a corrupt cab.
 - Mass-disabling AV services or planting a spoofed `CN=Microsoft Windows` root trips automated safety
   classifiers; expect to run those steps by hand in the VM.
+- **AME logs** live in `C:\ProgramData\AME\Logs\[<date>] WinDebloat\`: `Log.yml` (selected options +
+  warnings only) and `Output.txt` (every action and its process output; contains NUL bytes, strip them
+  before grepping). AME does **not** stop on a failing `!run`/`!powerShell`, so a "successful" run can hide
+  whole failed phases. First grep after every apply: `exit code: 55` (tool gate), then `error code`.
+- AME extracts the running playbook to `%TEMP%\AME\Playbooks\<UniqueId, upper-case>`; `runas:
+  currentUserElevated` steps see the *user's* `%TEMP%`. The tool's mid-apply gate relies on this path.
+- **Validate the end state, not the log.** Diff the expected values (walk `main.yml` → `!task` tree, apply
+  option gates incl. file-level `option:`) against the VM's registry/services/tasks/appx. Known benign
+  mismatches on 26300: `GpuEnergyDrv`, `Telemetry`, `diagnosticshub.standardcollector.service` services and
+  some scheduled tasks don't exist; Photo Viewer associations are overwritten by `FILEASSOC.cmd` by design;
+  the `WindowsUpdate\Services\Pending\…\RegisterWithAU` key is consumed by WU.
+- Not yet explained (seen on the VM): `Diagtrack-Listener` autologger `Start` back to `1`, and
+  `HKCU\Control Panel\Accessibility\HighContrast\Flags` reset to `126`.
+
+## Monorepo / git gotchas (`debloat-tool/`)
+
+- **A folder with its own `.git` is silently skipped by `git add`** (or added as a bare gitlink). That is
+  how a first push shipped a workflow building `debloat-tool/src` without the folder ("The directory name
+  is invalid" on the runner). `debloat-tool/` is a `git subtree` import — never put a nested `.git` back.
+- **Line endings:** the playbook and the tool both store a mix of CRLF and LF files, and the maintainer's
+  machine has `core.autocrlf=true`, so a fresh clone can show "modified" files and `git subtree` refuses to
+  run. Use `git -c core.autocrlf=false` for subtree/clone operations, and when committing edits make each
+  file's line endings match its stored blob, or a one-line change becomes a whole-file diff.
+- **VS Code locks open folders** on Windows (`mv`/`Move-Item` fail with "being used by another process").
+  Work around it in a temp clone (`git -c core.autocrlf=false clone`), then `git fetch` the result back and
+  `git update-ref` + `git reset` when the working-tree files already match.
+- The tool (Flutter + Rust + Inno Setup) has no local toolchain on the maintainer's machine; the
+  `build-tool` CI job is the first compile. Upstream sync procedure: `debloat-tool/README.md`.
 
 ## Playbook regressions already learned (don't reintroduce)
 

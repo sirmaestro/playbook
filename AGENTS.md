@@ -140,4 +140,7 @@ release.** `docs/` is not packed into the `.apbx` (agent-facing only) — keep i
   format: the catalog→YAML conversion table, where each category lands, overlap/deconfliction policy.
 - [docs/references-learnings.md](docs/references-learnings.md) — distilled gotchas from the upstream
   reference projects (the CBS/signing boundary, Defender/PPL facts, the CBS-package decode, revitool
-  verbs, VM testing notes, and the catalog of "this tweak was reverted because it broke X" lessons).
+  verbs, VM testing and log-reading notes, monorepo/git line-ending pitfalls, and the catalog of
+  "this tweak was reverted because it broke X" lessons).
+- [debloat-tool/README.md](debloat-tool/README.md) — WinDebloat Tool: what the fork changed vs Revision
+  Tool, re-pinning the CBS cabs, building, and **pulling upstream changes** (`git subtree pull`, no squash).

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-10-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "Packages": [
+        { "PackageIdentifier": "Microsoft.DotNet.DesktopRuntime.8" },
+        { "PackageIdentifier": "Microsoft.DotNet.DesktopRuntime.10" },
+        { "PackageIdentifier": "mcmilk.7zip-zstd" },
+        {
+          "PackageIdentifier": "Mozilla.Firefox.en-GB",
+          "InitialOverrideArguments": "/S /MaintenanceService=false /DesktopShortcut=false /TaskbarShortcut=false /PrivateBrowsingShortcut=false"
+        }
+      ],
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "Associations": [
+    {
+      "App": "Firefox",
+      "Match": "\\firefox.exe",
+      "Types": [".htm", ".html", ".shtml", ".xht", ".xhtml"],
+      "DefaultAppsPage": true
+    },
+    {
+      "App": "7-Zip",
+      "Match": "\\7zFM.exe",
+      "CreateProgIds": "7-Zip",
+      "Types": [".7z", ".zip", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".tbz", ".xz", ".txz", ".zst", ".tzst", ".zstd", ".lz4", ".lz5", ".liz", ".lz", ".tlz", ".lzma", ".br", ".cab", ".lzh", ".lha", ".arj", ".z", ".taz", ".cpio", ".rpm", ".deb", ".001"]
+    }
+  ],
+  "WinGetVersion": "1.29.380"
+}

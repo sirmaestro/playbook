@@ -8,31 +8,34 @@ actions:
 
   # ------> Quoting follows services.yml (PowerShell single quotes, no trailing '\' on -TaskPath): a "\...\" path
   # ------> ends in \" which escapes the closing quote on the powershell.exe command line (every task failed on the VM).
-  # ------> Tasks already stripped by system-components-removal (e.g. Feedback\Siuf) are skipped silently.
+  # ------> Tasks already stripped by system-components-removal / ai-removal must be skipped silently. Filter by
+  # ------> -TaskPath only, then Where-Object on the name (as upstream final.yml does for Office): a -TaskName that
+  # ------> matches nothing errors even under SilentlyContinue, so powershell.exe exits 1 and AME logs a failure
+  # ------> (ProgramDataUpdater, RecallConfiguration, RecallPipeline on the 26300 VM).
 
   # win: task.application-experience  (AitAgent + Microsoft Compatibility Appraiser already disabled by FINALIZE.cmd; the remaining members are ported here)
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'ProgramDataUpdater' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'MareBackup' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'StartupAppTask' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -TaskName 'PcaPatchDbTask' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'ProgramDataUpdater' } | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'MareBackup' } | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'StartupAppTask' } | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Application Experience\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'PcaPatchDbTask' } | Disable-ScheduledTask"}
 
   # win: task.disk-diagnostic  (DataCollector already disabled by FINALIZE.cmd; Resolver ported here)
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\DiskDiagnostic\\*' -TaskName 'Microsoft-Windows-DiskDiagnosticResolver' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\DiskDiagnostic\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'Microsoft-Windows-DiskDiagnosticResolver' } | Disable-ScheduledTask"}
 
   # win: task.diagnosis-scheduled  (scheduled maintenance diagnostics)
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Diagnosis\\*' -TaskName 'Scheduled' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Diagnosis\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'Scheduled' } | Disable-ScheduledTask"}
 
   # win: task.feedback-siuf  (Windows feedback/SIUF upload tasks)
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -TaskName 'DmClient' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -TaskName 'DmClientOnScenarioDownload' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'DmClient' } | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Feedback\\Siuf\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'DmClientOnScenarioDownload' } | Disable-ScheduledTask"}
 
   # win: task.sqm  (software quality metrics)
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\PI\\*' -TaskName 'Sqm-Tasks' -ErrorAction SilentlyContinue | Disable-ScheduledTask"}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\PI\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'Sqm-Tasks' } | Disable-ScheduledTask"}
 
   # win: task.windows-ai-recall  (Recall config/pipeline; N/A when Recall tasks absent)
   # ------> On 26300 the Recall tasks live under WindowsAI\Recall\ (InitialConfiguration, PolicyConfiguration), so that folder is covered too.
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -TaskName 'RecallConfiguration' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
-  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -TaskName 'RecallPipeline' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'RecallConfiguration' } | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
+  - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\*' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq 'RecallPipeline' } | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
   - !powerShell: {command: "Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\WindowsAI\\Recall\\*' -ErrorAction SilentlyContinue | Disable-ScheduledTask", option: 'remove-winsxs-ai'}
 
   # ======> VM validation pass (manual run of optimizerDuck & co. against an applied VM)

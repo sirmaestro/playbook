@@ -1,0 +1,31 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-10-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "Packages": [
+        { "PackageIdentifier": "Microsoft.PowerShell" },
+        { "PackageIdentifier": "Microsoft.PowerToys" },
+        { "PackageIdentifier": "voidtools.Everything" },
+        { "PackageIdentifier": "TechPowerUp.NVCleanstall" },
+        { "PackageIdentifier": "CharlesMilette.TranslucentTB" },
+        { "PackageIdentifier": "Microsoft.WindowsTerminal" },
+        { "PackageIdentifier": "WinMerge.WinMerge" },
+        { "PackageIdentifier": "AntibodySoftware.WizTree" },
+        { "PackageIdentifier": "qarmin.czkawka.gui" },
+        { "PackageIdentifier": "TechPowerUp.GPU-Z" },
+        { "PackageIdentifier": "Gyan.FFmpeg.Essentials" },
+        { "PackageIdentifier": "AprilNEA.OpenLogi" },
+        { "PackageIdentifier": "Microsoft.Sysinternals.Autoruns" },
+        { "PackageIdentifier": "Microsoft.Sysinternals.ProcessExplorer" }
+      ],
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "WinGetVersion": "1.29.380"
+}

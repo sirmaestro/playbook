@@ -1,0 +1,40 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-10-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "Packages": [
+        { "PackageIdentifier": "Git.Git" },
+        { "PackageIdentifier": "Microsoft.VisualStudioCode" },
+        { "PackageIdentifier": "Fork.Fork" },
+        { "PackageIdentifier": "Kitware.CMake" },
+        { "PackageIdentifier": "OpenJS.NodeJS.LTS" },
+        { "PackageIdentifier": "EclipseAdoptium.Temurin.25.JDK" },
+        {
+          "PackageIdentifier": "Microsoft.VisualStudio.BuildTools",
+          "InitialOverrideArguments": "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.26100"
+        },
+        { "PackageIdentifier": "Microsoft.DotNet.SDK.10" },
+        { "PackageIdentifier": "Microsoft.WSL" },
+        { "PackageIdentifier": "Oracle.VirtualBox" },
+        { "PackageIdentifier": "nabdev.iloader" },
+        { "PackageIdentifier": "Python.PythonInstallManager" },
+        { "PackageIdentifier": "RedHat.Podman-Desktop" }
+      ],
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "Associations": [
+    {
+      "App": "VS Code",
+      "Match": "\\Code.exe",
+      "Types": [".json", ".md", ".yml", ".yaml", ".xml", ".ini", ".cfg", ".toml", ".ps1", ".psm1", ".sh", ".py", ".js", ".ts", ".css", ".log"]
+    }
+  ],
+  "WinGetVersion": "1.29.380"
+}

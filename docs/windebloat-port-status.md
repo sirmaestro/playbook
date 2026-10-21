@@ -103,4 +103,6 @@ lists on a clean image). This is harmless.
   upstream issue links, and the CC BY-SA credit in `<Details>`.
 - Removed the wallpaper (`configure-wallpaper`, WALLPAPER.ps1, WallpaperStartup.cmd, Wallpapers/). `dark.theme` is still applied by `configure-darkmode`.
 - Removed Brave (option, software.yml block, BraveSoftware/, brave.png, license). Firefox is now the default browser choice.
+- Removed the software step (software.yml, the `browser-firefox` option and browser page, `<Software>`, firefox.png).
+  Apps, Firefox included, are now installed after the playbook by `Executables/INSTALL-APPS.cmd` from `Executables/Apps/*.json`.
 - Gated the WinDebloat ports behind options (see AGENTS.md "Options").

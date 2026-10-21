@@ -1,0 +1,61 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-10-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "Packages": [
+        { "PackageIdentifier": "TheDocumentFoundation.LibreOffice" },
+        { "PackageIdentifier": "Nikse.SubtitleEdit" },
+        { "PackageIdentifier": "SumatraPDF.SumatraPDF" },
+        { "PackageIdentifier": "DuongDieuPhap.ImageGlass" }
+      ],
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "GitHubReleases": [
+    {
+      "Name": "mpv",
+      "Repo": "mpv-player/mpv",
+      "Asset": "-x86_64-w64-mingw32.zip",
+      "AddToPath": true,
+      "PostInstall": {
+        "File": "mpv.com",
+        "Arguments": "--register"
+      }
+    }
+  ],
+  "Associations": [
+    {
+      "App": "LibreOffice",
+      "Match": "\\LibreOffice\\program\\",
+      "Types": [".odt", ".ods", ".odp", ".odg", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf"]
+    },
+    {
+      "App": "SumatraPDF",
+      "Match": "\\SumatraPDF.exe",
+      "Types": [".pdf", ".xps", ".oxps"]
+    },
+    {
+      "App": "ImageGlass",
+      "Match": "ImageGlass",
+      "RegisterCommand": {"File": "ImageGlass.exe", "Arguments": "--ig-set-default-viewer \"{types}\""},
+      "Types": [".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".gif", ".bmp", ".dib", ".tif", ".tiff", ".webp", ".avif", ".heic", ".heif", ".jxl", ".ico", ".svg", ".psd", ".cr2", ".cr3", ".nef", ".arw", ".dng", ".orf", ".rw2", ".raf"]
+    },
+    {
+      "App": "mpv",
+      "Match": "\\mpv.exe",
+      "Types": [".mp4", ".mkv", ".webm", ".avi", ".mov", ".wmv", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".flv", ".3gp", ".ogv"]
+    },
+    {
+      "App": "Subtitle Edit",
+      "Match": "\\SubtitleEdit.exe",
+      "Types": [".srt", ".ass", ".ssa", ".vtt", ".sub"]
+    }
+  ],
+  "WinGetVersion": "1.29.380"
+}

@@ -89,6 +89,9 @@ actions:
     wait: true
     exe: "msiexec.exe"
     args: "/qn /norestart /X{A7AB73A3-CB10-4AA5-9D38-6AEFFBDE4C91}"
+    # 1605 = ERROR_UNKNOWN_PRODUCT: the add-in isn't installed (stock 26300 has no Office), which is the goal
+    # state. Log it instead of reporting a failure (AME RunAction handleExitCodes, trusted-uninstaller-cli).
+    handleExitCodes: {'1605': Log}
     weight: 10
     showError: false
     runas: currentUserElevated

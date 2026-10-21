@@ -42,7 +42,6 @@ Configuration/main.yml  (entry point, privilege: Admin, runs in order)
   ├─ packages/win-sxs.yml       wdtool winpackage removals, Defender toggle, telemetry removal
   ├─ packages/appx.yml          UWP removal
   ├─ taskKill explorer & shell hosts (Defender disabling needs explorer alive first, kill AFTER)
-  ├─ Tasks/software.yml         Brave / Firefox
   ├─ Tasks/services.yml         service startup changes
   ├─ Tasks/registry.yml         aggregator -> ~50 files under Tasks/registry/**
   ├─ Tasks/revert.yml           onUpgrade rollback of tweaks from older playbook versions
@@ -57,13 +56,13 @@ exactly where each WinDebloat category lands.
 
 | Path | Purpose |
 |---|---|
-| `playbook.conf` | AME metadata, `SupportedBuilds`, `Requirements`, ISO/OOBE settings, `Software` packages, `FeaturePages` (all user-facing options) |
+| `playbook.conf` | AME metadata, `SupportedBuilds`, `Requirements`, ISO/OOBE settings, `FeaturePages` (all user-facing options) |
 | `Configuration/main.yml` | Entry point; `privilege: Admin` |
 | `Configuration/Tasks/*.yml` | Top-level task groups; `privilege: TrustedInstaller` |
 | `Configuration/Tasks/registry/<area>/*.yml` | Registry tweaks by area: `explorer`, `privacy`, `security`, `system`, `updates`, `misc`, `os-info` |
 | `Configuration/Tasks/packages/*.yml` | Removal of Win32 / WinSxS / Appx packages |
-| `Executables/` | Scripts/assets AME copies next to the run; referenced with `exeDir: true`. Flat, plus `Licenses/`, `Wallpapers/`, `BraveSoftware/` |
-| `Images/` | Icons for the software picker in `playbook.conf` |
+| `Executables/` | Scripts/assets AME copies next to the run; referenced with `exeDir: true`. Flat, plus `Licenses/` and `Apps/` |
+| `Executables/Apps/*.json` | Post-playbook winget app groups (`winget export` format) for `INSTALL-APPS.cmd`: `base` installs first, the rest are picked from a menu |
 | `docs/` | Agent references (this fork): extension strategy, distilled learnings/gotchas |
 
 Outside `src/`: `debloat-tool/` is the WinDebloat Tool source (Flutter/Dart + Rust bridge, Inno Setup
@@ -90,7 +89,7 @@ Common keys:
 
 ## Options (defined in `playbook.conf`, consumed via `option:`)
 
-- Radio: `browser-firefox` (default; Brave was removed in this fork), `disable-defender`/`enable-defender`, `disable-hibernate`/`enable-hibernate`
+- Radio: `disable-defender`/`enable-defender`, `disable-hibernate`/`enable-hibernate`
 - Checkbox: `remove-edge`, `remove-onedrive`, `remove-winsxs-ai`, `remove-teams`, `remove-appx-photos`, `remove-appx-devhome`, `remove-appx-xbox`, `remove-appx-yourphone`, `configure-darkmode`, `configure-lcm`, `configure-te`, `remove-pinned-items-startmenu`, `disable-automatic-maintenance` (the `configure-wallpaper` option was removed in this fork)
 - WinDebloat checkboxes: `windebloat-explorer-cleanup`, `windebloat-show-hidden-files`, `windebloat-quiet-shell`,
   `windebloat-regional-formats` (default off), `windebloat-remove-capabilities`, `windebloat-mmcss`,
@@ -133,6 +132,88 @@ release.** `docs/` is not packed into the `.apbx` (agent-facing only) — keep i
 - Commit style: `feat(win-sxs): …`, `fix(start): …`, `search: …`, `readme: …`.
 - Windows paths use backslashes; single-quoted YAML needs no escaping, double-quoted does (`"%ProgramFiles%\\WinDebloat Tool"`).
 - `.cmd` files starting with `<# :` are polyglot CMD/PowerShell hybrids — keep the header intact.
+
+## VM testing
+
+`tools/vmtest.ps1` applies the playbook to the VirtualBox test VM headlessly and writes a JSON verdict.
+It drives the guest only through `VBoxManage guestcontrol` (never keyboard injection). It applies with
+**TrustedUninstaller.CLI**, AME Wizard's headless core (Ameliorated-LLC/trusted-uninstaller-cli 0.8.4,
+SHA256-pinned and cached in `tools/cache/`), so no GUI is involved.
+
+```powershell
+$env:VMTEST_GUEST_PASSWORD = '<guest password>'      # VMTEST_GUEST_USER defaults to vboxuser
+pwsh tools\vmtest.ps1 -Build                         # build package + full run, VM powered off after
+pwsh tools\vmtest.ps1 -Build -KeepRunning            # leave the VM up for inspection
+pwsh tools\vmtest.ps1 -ParseOnly out\vmtest\<run>    # re-summarise a past run's logs (no VM)
+```
+
+What a run does:
+1. **Restore and boot.** Restores `-Snapshot` (default `clean-defender-off-UAC-off`) and boots headless.
+2. **Wait for the guest.** Waits for a real `guestcontrol` round-trip plus a logged-on user. There are no
+   fixed sleeps.
+3. **Copy in.** Copies `tools/vmtest/guest-agent.ps1`, the CLI zip, the package and `options.txt` to
+   `C:\vmtest\in`, and checks each file's SHA256 inside the guest.
+4. **Precheck.** The agent elevates itself and mirrors the CLI's Defender-toggle check. If real-time
+   protection has turned itself back on, it re-disables it with `Set-MpPreference` (Tamper Protection
+   must already be off).
+5. **Apply.** The agent registers its own scheduled task `vmtest-apply` (RunLevel Highest, Interactive
+   logon as the signed-in user) and runs the CLI from it. The harness polls until the CLI exits or
+   `-ApplyTimeoutMin` passes. On timeout the apply is marked `hung` and killed.
+6. **Pull logs.** Zips the CLI's `Output.txt`/`Log.yml`, job stdout and `ProgramData\AME\Logs` in the
+   guest, copies the zip out and checks its hash.
+7. **Summarise.** `tools/vmtest/amelog.py` (Python + PyYAML) walks `main.yml` with the engine's own
+   applicability rules and pairs each executed action with its `Output.txt` block. It writes
+   `summary.json` with these buckets:
+   - **applied**
+   - **failed**, each with its error: unhandled non-zero exit, inline Error/Critical, or the `55` gate
+   - **skipped**, with the option or `onUpgrade` reason
+   - **unconfirmed**, for actions with no log block
+8. **Revert.** Runs `-RevertScript <file.ps1>` the same way under `-RevertTimeoutMin`. Without the
+   flag, `revert.status` is `not-run`, because the playbook has no revert path yet. (`revert.yml` is an
+   `onUpgrade` rollback; it runs only on a re-apply.)
+
+Exit codes: `0` = pass, `1` = any failed/unconfirmed action, non-success engine result or failed/hung
+revert, `2` = harness or VM error (including misaligned log pairing).
+
+Output lands in `out/vmtest/<timestamp>/` (git-ignored):
+
+| File | Contents |
+|---|---|
+| `summary.json` | The verdict |
+| `tweaks.json` | Per-action detail |
+| `harness.log` | The harness's own log |
+| `logs/` | Everything pulled from the guest |
+| `config/` | The exact Configuration that was tested |
+
+`tools/build-package.ps1` (also run by `-Build`) zips `src\*` plus `WinDebloatTool-Setup.exe` into
+`out/build/playbook.zip`. The installer is taken from `src\Executables` if present, otherwise from
+GitHub release `-ToolRelease` (default `26.10`). So **a local run tests the released tool, not a tool
+built from your working tree**.
+
+Snapshot requirements:
+- Win11 offline snapshot with Guest Additions and auto-logon.
+- Defender Tamper Protection off. This can only be set by hand in the Windows Security UI.
+- UAC slider at "Never notify" (`ConsentPromptBehaviorAdmin=0`). `guestcontrol` hands out a filtered
+  token, and this is the only prompt-free way to elevate it. The harness checks this and explains if
+  it's missing.
+- No pre-registered helper tasks are needed.
+
+Reading results:
+- "applied" means the action ran without an error. It does not mean the end state was verified. For
+  that, diff the end state as described in [docs/references-learnings.md](docs/references-learnings.md)
+  ("Validate the end state, not the log").
+- Non-zero exits on actions the playbook marks `errorAction: Ignore` are listed as `ignoredExitCode`
+  and are not failures.
+- Recovered registry warnings (e.g. UCPD-protected `TaskbarDa`, which AME re-applies via `reg.exe`) are
+  listed under `warnings`.
+
+Gotchas the harness already handles (keep them in mind when changing it):
+- VBoxManage 7.2 `run --` has no argv[0] slot.
+- Its exit code is not the guest's, so the agent prints `VMTEST_EXIT=` instead.
+- In cmd, `echo %ERRORLEVEL%>f` writes nothing when the code is `0` (cmd reads it as `0>`, a redirect),
+  so the exit-marker redirect goes first.
+- A one-element PowerShell array unrolls to a string.
+- Guest scripts stay ASCII-only for PS 5.1.
 
 ## More context
 

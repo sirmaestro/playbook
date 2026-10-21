@@ -8,3 +8,10 @@ debloat-tool/CodeDependencies.iss
 debloat-tool/InnoDependencyInstaller/
 debloat-tool/src/additionals/packages/appx/*.appx
 debloat-tool/src/additionals/packages/appx/*.msix
+
+# INSTALL-APPS.ps1 transcripts
+src/Executables/install-apps-*.log
+
+# VM harness: build output, run logs, downloaded binaries (AME CLI, tool installer)
+out/
+tools/cache/

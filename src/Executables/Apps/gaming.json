@@ -1,0 +1,45 @@
+{
+  "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
+  "CreationDate": "2026-10-21T00:00:00.000-00:00",
+  "Sources": [
+    {
+      "Packages": [
+        { "PackageIdentifier": "Microsoft.VCRedist.2005.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2008.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2008.x64" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2010.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2010.x64" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2012.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2012.x64" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2013.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2013.x64" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2015+.x86" },
+        { "PackageIdentifier": "Microsoft.VCRedist.2015+.x64" },
+        { "PackageIdentifier": "Microsoft.DirectX" },
+        { "PackageIdentifier": "Microsoft.GameInput" },
+        { "PackageIdentifier": "Valve.Steam" },
+        { "PackageIdentifier": "PlayStation.PlayStationAccessories" },
+        { "PackageIdentifier": "LizardByte.Sunshine" }
+      ],
+      "SourceDetails": {
+        "Argument": "https://cdn.winget.microsoft.com/cache",
+        "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
+        "Name": "winget",
+        "Type": "Microsoft.PreIndexed.Package"
+      }
+    },
+    {
+      "Packages": [
+        { "PackageIdentifier": "XPDM5VSMTKQLBJ" },
+        { "PackageIdentifier": "XPFC0VB7MLFWLC" }
+      ],
+      "SourceDetails": {
+        "Argument": "https://storeedgefd.dsx.mp.microsoft.com/v9.0",
+        "Identifier": "StoreEdgeFD",
+        "Name": "msstore",
+        "Type": "Microsoft.Rest"
+      }
+    }
+  ],
+  "WinGetVersion": "1.29.380"
+}

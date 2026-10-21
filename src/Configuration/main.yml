@@ -30,7 +30,6 @@ actions:
   - !taskKill: {name: "backgroundTaskHost", errorAction: Ignore}
   - !taskKill: {name: "Widgets", errorAction: Ignore}
 
-  - !task: {path: 'Tasks\software.yml'}
   - !task: {path: 'Tasks\services.yml'}
   # WinDebloat: extra service + scheduled-task disables
   - !task: {path: 'Tasks\windebloat-services.yml'}

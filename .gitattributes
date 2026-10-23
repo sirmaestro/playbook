@@ -1,0 +1,15 @@
+# Line endings: stored LF in the repo, checked out CRLF on every machine.
+# AME/playbook files (playbook.conf, YAML tasks, .ps1/.cmd) must be CRLF in the packaged .apbx,
+# and this makes that independent of the cloner's (or CI runner's) core.autocrlf setting.
+# Subtree pulls of debloat-tool/: git -c merge.renormalize=true subtree pull ... (see debloat-tool/README.md)
+* text=auto eol=crlf
+
+*.apbx binary
+*.cab binary
+*.dll binary
+*.exe binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.7z binary

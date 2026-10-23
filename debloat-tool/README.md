@@ -51,11 +51,11 @@ Each sync (clean working tree, from the repo root):
 
 ```
 git fetch revision-tool
-git subtree pull --prefix=debloat-tool revision-tool main
+git -c merge.renormalize=true subtree pull --prefix=debloat-tool revision-tool main
 ```
 
-If Git reports modifications you didn't make, it is line endings (the tree mixes CRLF- and LF-stored
-files and `core.autocrlf=true` re-normalizes them); prefix the command with `git -c core.autocrlf=false`.
+`merge.renormalize` is required: this repo stores all text LF (root `.gitattributes`), while upstream
+stores a CRLF/LF mix, so without it every upstream CRLF file conflicts on line endings alone.
 To take a single upstream fix instead: `git cherry-pick -X subtree=debloat-tool <commit>`.
 
 ### Resolving conflicts

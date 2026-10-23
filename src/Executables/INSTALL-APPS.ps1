@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs app groups from the Apps folder with winget, after making sure winget works.
+    Installs app groups from the Apps folder with winget, after updating winget to its latest release.
 
 .DESCRIPTION
     Run once after the playbook has finished, while signed in and online.
@@ -11,21 +11,35 @@
 
     Apps not packaged in winget from their official source go in an optional top-level
     "GitHubReleases" list in the same group file (winget import ignores it):
-      { "Name": "mpv", "Repo": "mpv-player/mpv", "Asset": "-x86_64-w64-mingw32.zip",
+      { "Name": "mpv", "Repo": "zhongfly/mpv-winbuild", "AssetPattern": "^mpv-x86_64-\\d{8}-git-[0-9a-f]+\\.7z$",
         "AddToPath": true, "PostInstall": { "File": "mpv.com", "Arguments": "--register" } }
-    The latest release's zip asset whose name ends with "Asset" is checked against the SHA-256
-    digest GitHub publishes, extracted to Program Files\<Name>, and PostInstall runs from there.
+    The latest release's .zip or .7z asset whose name ends with "Asset" (or matches the regex
+    "AssetPattern") is checked against the SHA-256 digest GitHub publishes, extracted to
+    Program Files\<Name>, and PostInstall runs from there.
 
     After a group installs, its optional top-level "Associations" list makes those apps the
-    signed-in user's defaults, through the playbook's assoc.ps1:
-      { "App": "SumatraPDF", "Match": "SumatraPDF.exe", "Types": [".pdf", ".xps"] }
+    signed-in user's defaults: the class defaults through the playbook's assoc.ps1, then, once all
+    groups are in, the user's own choice (UserChoiceLatest on Windows 11, UserChoice before it)
+    through SFTA\SFTA.ps1, as Settings > Default apps would write it. An app with no
+    RegisteredApplications entry of its own gets one listing its resolved ProgIds, so Settings
+    still offers it:
+      { "App": "LibreOffice", "Match": "\\LibreOffice\\program\\", "Types": [".odt", ".docx"] }
     For each type, the ProgId whose open command (or AppUserModelID, for Store apps) contains
     "Match" is picked from the ones the app registered. "CreateProgIds": "7-Zip" first creates
-    the 7-Zip.<ext> ProgIds that 7-Zip's own Options dialog would; "RegisterCommand" runs an
+    the 7-Zip.<ext> ProgIds that 7-Zip's own Options dialog would, and
+    "CreateProgIds": { "Exe": "%ProgramFiles%\\App\\App.exe" } creates <App>.<ext> ones for an app that
+    registers none; "RegisterCommand" runs an
     app's own registration first ({ "File": "ImageGlass.exe", "Arguments": "--ig-set-default-viewer
-    \"{types}\"" }) for apps that create ProgIds only on request. "DefaultAppsPage": true opens
-    the app's page in Settings > Default apps at the end, for defaults Windows only lets the
-    user set (web links).
+    \"{types}\"" }) for apps that create ProgIds only on request.
+
+    An optional top-level "AppSettings" list then adjusts installed apps (environment variables are
+    expanded; an entry whose "When" path or BlockInbound program does not exist is skipped):
+      { "App": "ImageGlass", "When": "%LOCALAPPDATA%\\Packages\\<family name>",
+        "JsonFile": "%LOCALAPPDATA%\\...\\igconfig.json", "Values": { "QuickSetupVersion": 10 } }
+    merges Values into the signed-in user's JSON config (created if missing), and
+      { "App": "Stirling-PDF", "BlockInbound": "%ProgramFiles%\\...\\java.exe" }
+    adds a Windows Firewall rule blocking inbound connections to that program on every network
+    profile, so Windows does not ask whether to let it on the network (localhost is not filtered).
 
 .PARAMETER Group
     Groups to install (file names in Apps without .json), e.g. -Group development,gaming,
@@ -37,13 +51,23 @@
 
 .PARAMETER NoAssociations
     Install only; leave default apps alone.
+
+.PARAMETER KeepDesktopShortcuts
+    Keep the desktop shortcuts that installers create. By default, shortcuts added to the user's or
+    the Public desktop during the run are removed; ones that were already there are left alone.
+
+.PARAMETER DownloadCache
+    Testing aid (tools\vmtest.ps1): a folder of GitHub release assets. One whose SHA-256 matches the
+    release's published digest is used instead of downloading it, and new downloads are added.
 #>
 param(
     [string[]]$Group,
     [string]$AppsDir = (Join-Path $PSScriptRoot 'Apps'),
     [version]$MinWingetVersion = '1.7.0',
     [switch]$DryRun,
-    [switch]$NoAssociations
+    [switch]$NoAssociations,
+    [switch]$KeepDesktopShortcuts,
+    [string]$DownloadCache
 )
 # Through powershell.exe -File, "-Group a,b" arrives as one string.
 $Group = @($Group | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -61,6 +85,8 @@ if (-not $DryRun -and -not $principal.IsInRole([Security.Principal.WindowsBuiltI
     )
     if ($Group.Count) { $elevatedArgs += @('-Group', ($Group -join ',')) }
     if ($NoAssociations) { $elevatedArgs += '-NoAssociations' }
+    if ($KeepDesktopShortcuts) { $elevatedArgs += '-KeepDesktopShortcuts' }
+    if ($DownloadCache) { $elevatedArgs += @('-DownloadCache', "`"$DownloadCache`"") }
     Start-Process -FilePath $hostExe -Verb RunAs -ArgumentList $elevatedArgs
     exit
 }
@@ -113,6 +139,18 @@ function Get-WingetVersion {
     return $null
 }
 
+# The playbook turns off Store auto-updates, so App Installer (winget) stays at the image's version.
+function Get-LatestWingetVersion {
+    try {
+        $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' `
+            -Headers @{ 'User-Agent' = 'INSTALL-APPS'; 'Accept' = 'application/vnd.github+json' } -UseBasicParsing
+        if ($release.tag_name -match '(\d+\.\d+(\.\d+)?)') { return [version]$Matches[1] }
+    } catch {
+        Write-Host "   Could not look up the latest winget release: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    return $null
+}
+
 function Repair-Winget {
     Write-Host '   Repairing winget with Microsoft.WinGet.Client (Repair-WinGetPackageManager)...'
     try {
@@ -138,8 +176,14 @@ function Format-ExitCode([int]$Code) {
 function Get-GitHubAsset($Package) {
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$($Package.Repo)/releases/latest" `
         -Headers @{ 'User-Agent' = 'INSTALL-APPS'; 'Accept' = 'application/vnd.github+json' } -UseBasicParsing
-    $asset = @($release.assets | Where-Object { $_.name -like "*$($Package.Asset)" })
-    if ($asset.Count -ne 1) { throw "expected one asset ending in '$($Package.Asset)' in $($release.tag_name), found $($asset.Count)" }
+    if ($Package.AssetPattern) {
+        $asset = @($release.assets | Where-Object { $_.name -match $Package.AssetPattern })
+        $wanted = "matching '$($Package.AssetPattern)'"
+    } else {
+        $asset = @($release.assets | Where-Object { $_.name -like "*$($Package.Asset)" })
+        $wanted = "ending in '$($Package.Asset)'"
+    }
+    if ($asset.Count -ne 1) { throw "expected one asset $wanted in $($release.tag_name), found $($asset.Count)" }
     if ($asset[0].digest -notmatch '^sha256:[0-9a-f]{64}$') { throw "$($asset[0].name) has no SHA-256 digest to verify against" }
     [pscustomobject]@{
         Tag    = $release.tag_name
@@ -149,8 +193,71 @@ function Get-GitHubAsset($Package) {
     }
 }
 
+# Downloads a Get-GitHubAsset result into Dir and checks it against the release's SHA-256 digest.
+# With -DownloadCache, a cached copy with that digest is used instead, and new downloads are kept.
+function Save-GitHubAsset($Asset, [string]$Dir) {
+    New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+    $file = Join-Path $Dir $Asset.Name
+    $cached = if ($DownloadCache) { Join-Path $DownloadCache $Asset.Name } else { $null }
+    $fromCache = $cached -and (Test-Path -LiteralPath $cached) -and
+        (Get-FileHash -LiteralPath $cached -Algorithm SHA256).Hash.ToLowerInvariant() -eq $Asset.Sha256
+    if ($fromCache) {
+        Write-Host "   Using cached $($Asset.Name) ($($Asset.Tag))"
+        Copy-Item -LiteralPath $cached -Destination $file
+    } else {
+        Write-Host "   Downloading $($Asset.Name) ($($Asset.Tag))"
+        # Windows PowerShell's progress bar slows Invoke-WebRequest downloads many times over.
+        $progress = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
+        try { Invoke-WebRequest -Uri $Asset.Url -OutFile $file -UseBasicParsing } finally { $ProgressPreference = $progress }
+    }
+    $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($hash -ne $Asset.Sha256) { throw "SHA-256 mismatch for $($Asset.Name): got $hash, release lists $($Asset.Sha256)" }
+    if ($cached -and -not $fromCache) {
+        New-Item -ItemType Directory -Force -Path $DownloadCache | Out-Null
+        Copy-Item -LiteralPath $file -Destination $cached -Force
+    }
+    return $file
+}
+
+# Installs the latest App Installer (winget) from winget-cli's GitHub release, digest-verified, with
+# the framework packages it needs for this CPU. Registers it for the user running this script.
+function Update-Winget {
+    $work = Join-Path $env:TEMP ("install-apps-" + [guid]::NewGuid())
+    try {
+        $repo = 'microsoft/winget-cli'
+        $bundle = Save-GitHubAsset (Get-GitHubAsset ([pscustomobject]@{ Repo = $repo; Asset = '.msixbundle' })) $work
+        $depsZip = Save-GitHubAsset (Get-GitHubAsset ([pscustomobject]@{ Repo = $repo; Asset = 'DesktopAppInstaller_Dependencies.zip' })) $work
+        $deps = Join-Path $work 'deps'
+        Expand-Archive -LiteralPath $depsZip -DestinationPath $deps -Force
+        $arch = switch ($env:PROCESSOR_ARCHITECTURE) { 'ARM64' { 'arm64' } 'x86' { 'x86' } default { 'x64' } }
+        $depFiles = @(Get-ChildItem -LiteralPath $deps -Recurse -File |
+            Where-Object { $_.Extension -in '.appx', '.msix' -and $_.FullName -match "[\\_]$arch[\\_.]" } | ForEach-Object { $_.FullName })
+        Write-Host "   Installing App Installer with $($depFiles.Count) $arch framework package(s)"
+        Add-AppxPackage -Path $bundle -DependencyPath $depFiles -ForceApplicationShutdown
+        return $true
+    } catch {
+        Write-Warning "   App Installer update failed: $($_.Exception.Message)"
+        return $false
+    } finally {
+        if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+# .zip through Expand-Archive; anything else (.7z) through Windows' tar.exe (libarchive), else 7-Zip.
+function Expand-AnyArchive([string]$Archive, [string]$Destination) {
+    if ([IO.Path]::GetExtension($Archive) -eq '.zip') { Expand-Archive -LiteralPath $Archive -DestinationPath $Destination -Force; return }
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    & "$env:SystemRoot\System32\tar.exe" -xf $Archive -C $Destination
+    if ($LASTEXITCODE -eq 0) { return }
+    $sevenZip = @('7-Zip-Zstandard', '7-Zip') | ForEach-Object { Join-Path $env:ProgramFiles "$_\7z.exe" } |
+        Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $sevenZip) { throw "tar.exe could not extract $(Split-Path $Archive -Leaf) and 7-Zip is not installed" }
+    & $sevenZip x $Archive "-o$Destination" -y | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "7-Zip could not extract $(Split-Path $Archive -Leaf) (exit $LASTEXITCODE)" }
+}
+
 function Expand-Flat([string]$Zip, [string]$Destination) {
-    Expand-Archive -LiteralPath $Zip -DestinationPath $Destination -Force
+    Expand-AnyArchive $Zip $Destination
     # Some releases wrap the build in a second zip or a single top-level folder.
     while ($true) {
         $items = @(Get-ChildItem -LiteralPath $Destination -Force)
@@ -176,12 +283,7 @@ function Install-GitHubRelease($Package) {
             Write-Host "   $($asset.Tag) is already installed in $dir"
             return $codeAlreadyInstalled[0]
         }
-        Write-Host "   Downloading $($asset.Name) ($($asset.Tag))"
-        New-Item -ItemType Directory -Force -Path $work | Out-Null
-        $zip = Join-Path $work $asset.Name
-        Invoke-WebRequest -Uri $asset.Url -OutFile $zip -UseBasicParsing
-        $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($hash -ne $asset.Sha256) { throw "SHA-256 mismatch for $($asset.Name): got $hash, release lists $($asset.Sha256)" }
+        $zip = Save-GitHubAsset $asset $work
         $staged = Join-Path $work 'files'
         Expand-Flat $zip $staged
 
@@ -218,7 +320,8 @@ function Install-Package($Package) {
     $wingetArgs = @('install', '--id', $Package.Id, '--exact', '--source', $Package.Source,
         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
     if ($Package.Override) { $wingetArgs += @('--override', $Package.Override) } else { $wingetArgs += '--silent' }
-    & winget.exe @wingetArgs
+    # Out-Host: winget's console output would otherwise become part of this function's return value.
+    & winget.exe @wingetArgs | Out-Host
     return $LASTEXITCODE
 }
 
@@ -226,7 +329,7 @@ function Install-Package($Package) {
 Write-Step 'Waiting for winget download server'
 if (-not (Wait-Network)) { throw 'cdn.winget.microsoft.com is unreachable. Check the network connection and run this again.' }
 
-# 2-3. winget present and recent enough
+# 2-3. winget present and up to date
 Write-Step 'Checking winget'
 $version = Get-WingetVersion
 if (-not $version) {
@@ -238,11 +341,16 @@ if (-not $version) {
     }
     $version = Get-WingetVersion
 }
-if (-not $version -or $version -lt $MinWingetVersion) {
+$latest = Get-LatestWingetVersion
+if (-not $version -or $version -lt $MinWingetVersion -or ($latest -and $version -lt $latest)) {
+    $target = if ($latest) { $latest } else { $MinWingetVersion }
     if ($DryRun) {
-        Write-Warning "   winget $version is missing or older than $MinWingetVersion; a real run would repair it."
+        Write-Warning "   winget $version is missing or older than $target; a real run would update it."
     } else {
-        Repair-Winget
+        if ($version) { Write-Host "   winget $version is older than $target; updating..." }
+        # Repair-WinGetPackageManager needs NuGet and PowerShell Gallery, which a fresh Windows
+        # PowerShell 5.1 often cannot reach; it is the fallback.
+        if (-not (Update-Winget)) { Repair-Winget }
         $version = Get-WingetVersion
     }
 }
@@ -281,13 +389,14 @@ function Get-GroupPackages([string]$Name) {
     }
     foreach ($rel in $list.GitHubReleases) {
         [pscustomobject]@{
-            Id          = $rel.Name
-            Source      = 'github'
-            Repo        = $rel.Repo
-            Asset       = $rel.Asset
-            AddToPath   = [bool]$rel.AddToPath
-            PostInstall = $rel.PostInstall
-            Group       = $Name
+            Id           = $rel.Name
+            Source       = 'github'
+            Repo         = $rel.Repo
+            Asset        = $rel.Asset
+            AssetPattern = $rel.AssetPattern
+            AddToPath    = [bool]$rel.AddToPath
+            PostInstall  = $rel.PostInstall
+            Group        = $Name
         }
     }
 }
@@ -336,7 +445,7 @@ if ($DryRun) {
 }
 
 $installed = @(); $present = @(); $reboot = @(); $failed = @{}
-$assocSet = 0; $assocMissing = @(); $defaultAppsPages = @()
+$assocSet = 0; $assocMissing = @(); $userDefaults = @()
 
 # --- Default apps ---------------------------------------------------------------------------
 $hkcr = [Microsoft.Win32.Registry]::ClassesRoot
@@ -400,8 +509,10 @@ function Resolve-ProgId([string]$Type, [string]$Match, $RegisteredApps) {
 }
 
 # The registered app whose web-link (or any) handler launches Match, for the Settings deep link.
+# Packaged apps' AppX<hash> entries are skipped: Settings opens its main page for those, not the app's.
 function Find-RegisteredApp([string]$Match, $RegisteredApps) {
     foreach ($app in $RegisteredApps) {
+        if ($app.Name -like 'AppX*') { continue }
         foreach ($sub in 'URLAssociations', 'FileAssociations') {
             $caps = $app.Root.OpenSubKey("$($app.Path)\$sub")
             if (-not $caps) { continue }
@@ -472,6 +583,26 @@ public static extern int LoadString(IntPtr h, uint id, System.Text.StringBuilder
     }
 }
 
+# Apps that register no ProgIds at all (Subtitle Edit 5): create <App>.<ext> ones that open the
+# file with CreateProgIds.Exe (environment variables expanded), as the app's own installer would.
+function Register-AppProgIds($Assoc) {
+    $exe = [Environment]::ExpandEnvironmentVariables([string]$Assoc.CreateProgIds.Exe)
+    if (-not (Test-Path -LiteralPath $exe)) { Write-Host "   $($Assoc.App) is not installed at $exe; skipping its ProgIds" -ForegroundColor Yellow; return }
+    $prefix = $Assoc.App -replace '[^A-Za-z0-9]', ''
+    foreach ($type in $Assoc.Types) {
+        $ext = $type.TrimStart('.')
+        $progId = "$prefix.$ext"
+        $key = $hklm.CreateSubKey("SOFTWARE\Classes\$progId")
+        $key.SetValue('', "$($Assoc.App) $ext file")
+        $key.CreateSubKey('DefaultIcon').SetValue('', "$exe,0")
+        $key.CreateSubKey('shell\open\command').SetValue('', "`"$exe`" `"%1`"")
+        $key.Close()
+        $owp = $hklm.CreateSubKey("SOFTWARE\Classes\$type\OpenWithProgids")
+        $owp.SetValue($progId, [byte[]]@(), [Microsoft.Win32.RegistryValueKind]::None)
+        $owp.Close()
+    }
+}
+
 # Some apps only create their ProgIds when asked (ImageGlass 10: --ig-set-default-viewer).
 # "{types}" in Arguments becomes the ";"-joined type list. A bare File name is looked up on PATH,
 # then among Store app execution aliases.
@@ -489,6 +620,25 @@ function Invoke-RegisterCommand($Assoc) {
     if ($proc.ExitCode -ne 0) { Write-Host "   $($Assoc.App) registration exited with $($proc.ExitCode)" -ForegroundColor Yellow }
 }
 
+# Settings > Default apps lists only apps in RegisteredApplications. For an app that registers none
+# (7-Zip) or points at a Capabilities key it never wrote (Subtitle Edit 5), register one here with
+# the ProgIds resolved for it, so its page offers those types.
+function Register-AppCapabilities([string]$App, [string[]]$Pairs) {
+    $path = "SOFTWARE\WinDebloat\InstallApps\$($App -replace '[^A-Za-z0-9]', '')\Capabilities"
+    $caps = $hklm.CreateSubKey($path)
+    $caps.SetValue('ApplicationName', $App)
+    $caps.SetValue('ApplicationDescription', "$App (registered by INSTALL-APPS)")
+    foreach ($pair in $Pairs) {
+        $i = $pair.LastIndexOf(':')
+        $type = $pair.Substring(0, $i)
+        $sub = if ($type.StartsWith('.')) { 'FileAssociations' } else { 'URLAssociations' }
+        $k = $caps.CreateSubKey($sub); $k.SetValue($type, $pair.Substring($i + 1)); $k.Close()
+    }
+    $caps.Close()
+    $ra = $hklm.CreateSubKey('SOFTWARE\RegisteredApplications'); $ra.SetValue($App, $path); $ra.Close()
+    return [pscustomobject]@{ Name = $App; Scope = 'Machine'; Path = $path; Root = $hklm }
+}
+
 function Set-GroupAssociations([string]$Name) {
     if ($NoAssociations) { return }
     $list = Get-Content -LiteralPath (Join-Path $AppsDir "$Name.json") -Raw | ConvertFrom-Json
@@ -500,26 +650,26 @@ function Set-GroupAssociations([string]$Name) {
     try {
         foreach ($a in $list.Associations) {
             if ($a.CreateProgIds -eq '7-Zip') { Register-SevenZipProgIds $a.Types }
+            elseif ($a.CreateProgIds.Exe) { Register-AppProgIds $a }
             if ($a.RegisterCommand) { Invoke-RegisterCommand $a }
         }
         $apps = @(Get-RegisteredApps)
         $pairs = @()
         foreach ($a in $list.Associations) {
-            $found = 0; $missing = @()
+            $found = 0; $missing = @(); $appPairs = @()
             foreach ($type in $a.Types) {
                 $progId = Resolve-ProgId $type $a.Match $apps
-                if ($progId) { $pairs += "${type}:$progId"; $found++ } else { $missing += $type }
+                if ($progId) { $appPairs += "${type}:$progId"; $found++ } else { $missing += $type }
             }
+            $pairs += $appPairs
             Write-Host "   $($a.App): $found of $(@($a.Types).Count) types"
             if ($missing.Count) {
                 Write-Host "   $($a.App) has no handler for: $($missing -join ' ')" -ForegroundColor Yellow
                 $script:assocMissing += "$($a.App): $($missing -join ' ')"
             }
-            if ($a.DefaultAppsPage) {
-                $reg = Find-RegisteredApp $a.Match $apps
-                if ($reg) { $script:defaultAppsPages += $reg }
-                else { $script:assocMissing += "$($a.App): not in Settings > Default apps" }
-            }
+            if (-not $appPairs.Count) { continue }
+            if (-not (Find-RegisteredApp $a.Match $apps)) { $null = Register-AppCapabilities $a.App $appPairs }
+            $script:userDefaults += [pscustomobject]@{ App = $a.App; Pairs = $appPairs }
         }
         if ($pairs.Count) {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $assocScript 'Placeholder' (Get-ConsoleUserSid) @pairs
@@ -529,6 +679,38 @@ function Set-GroupAssociations([string]$Name) {
     } catch {
         Write-Host "   Default apps for $Name failed: $($_.Exception.Message)" -ForegroundColor Yellow
         $script:assocMissing += "$Name group: $($_.Exception.Message)"
+    }
+}
+
+function Set-GroupAppSettings([string]$Name) {
+    $list = Get-Content -LiteralPath (Join-Path $AppsDir "$Name.json") -Raw | ConvertFrom-Json
+    if (-not $list.AppSettings) { return }
+    Write-Step "Adjusting apps: $Name"
+    foreach ($s in $list.AppSettings) {
+        try {
+            if ($s.When -and -not (Test-Path -LiteralPath ([Environment]::ExpandEnvironmentVariables([string]$s.When)))) {
+                Write-Host "   $($s.App) is not installed; skipping its settings"
+                continue
+            }
+            if ($s.JsonFile) {
+                $file = [Environment]::ExpandEnvironmentVariables([string]$s.JsonFile)
+                $config = if (Test-Path -LiteralPath $file) { Get-Content -LiteralPath $file -Raw | ConvertFrom-Json } else { New-Object psobject }
+                foreach ($p in $s.Values.PSObject.Properties) { $config | Add-Member -NotePropertyName $p.Name -NotePropertyValue $p.Value -Force }
+                $null = New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file)
+                [IO.File]::WriteAllText($file, ($config | ConvertTo-Json -Depth 20), (New-Object Text.UTF8Encoding($false)))
+                Write-Host "   $($s.App): set $(@($s.Values.PSObject.Properties.Name) -join ', ') in $(Split-Path -Leaf $file)"
+            }
+            if ($s.BlockInbound) {
+                $exe = [Environment]::ExpandEnvironmentVariables([string]$s.BlockInbound)
+                if (-not (Test-Path -LiteralPath $exe)) { Write-Host "   $($s.App) is not installed at $exe; skipping its firewall rule"; continue }
+                $rule = "WinDebloat-InstallApps-$($s.App -replace '[^A-Za-z0-9]', '')-BlockInbound"
+                Remove-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
+                $null = New-NetFirewallRule -Name $rule -DisplayName "$($s.App) - block inbound (Install Apps)" -Direction Inbound -Action Block -Profile Any -Program $exe
+                Write-Host "   $($s.App): inbound connections to $(Split-Path -Leaf $exe) blocked"
+            }
+        } catch {
+            Write-Host "   $($s.App) settings failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
 }
 
@@ -561,25 +743,105 @@ function Install-Group([string]$Name) {
     }
 }
 
+# Installers drop shortcuts on the user's and the Public desktop; note what is there now so only
+# the ones added by this run are removed afterwards.
+$desktops = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory')) | Where-Object { $_ }
+function Get-DesktopShortcuts {
+    @(Get-ChildItem -LiteralPath $desktops -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { '.lnk', '.url' -contains $_.Extension } | ForEach-Object { $_.FullName })
+}
+$shortcutsBefore = Get-DesktopShortcuts
+
 if ($Group.Count) {
     $selected = Resolve-Groups $Group
     foreach ($g in $selected) { $null = @(Get-GroupPackages $g) }   # fail on a typo before installing anything
-    foreach ($g in $selected) { Install-Group $g; Set-GroupAssociations $g }
+    foreach ($g in $selected) { Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
 } else {
     Install-Group 'base'
+    Set-GroupAppSettings 'base'
     Set-GroupAssociations 'base'
-    foreach ($g in Read-ExtraGroups) { Install-Group $g; Set-GroupAssociations $g }
+    foreach ($g in Read-ExtraGroups) { Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
 }
 
-# Windows only lets the user pick the default browser; open the page with one "Set default" button.
-foreach ($app in $defaultAppsPages | Sort-Object Name -Unique) {
-    Write-Host "`n   Opening Settings > Default apps > $($app.Name): click 'Set default'." -ForegroundColor Cyan
-    Start-Process "ms-settings:defaultapps?registeredApp$($app.Scope)=$([uri]::EscapeDataString($app.Name))"
+$shortcutsRemoved = @()
+if (-not $KeepDesktopShortcuts) {
+    foreach ($s in Get-DesktopShortcuts) {
+        if ($shortcutsBefore -contains $s) { continue }
+        try { Remove-Item -LiteralPath $s -Force; $shortcutsRemoved += Split-Path $s -Leaf }
+        catch { Write-Warning "   Could not remove desktop shortcut ${s}: $($_.Exception.Message)" }
+    }
 }
+
+# Every app Windows knows can open Type: the class default, OpenWithProgids (machine, user classes
+# and the user's FileExts list), OpenWithList and each registered app's Capabilities.
+function Get-TypeHandlers([string]$Type, $RegisteredApps) {
+    $ids = @(Get-ProgIdCandidates $Type $RegisteredApps)
+    $owl = $hkcr.OpenSubKey("$Type\OpenWithList")
+    if ($owl) { $ids += $owl.GetSubKeyNames(); $owl.Close() }
+    $owp = $hkcu.OpenSubKey("Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$Type\OpenWithProgids")
+    if ($owp) { $ids += $owp.GetValueNames(); $owp.Close() }
+    @($ids | Where-Object { $_ } | Select-Object -Unique)
+}
+
+# Windows 11 (26xxx) opens a type with the user's choice in UserChoiceLatest, whose salted hash
+# Settings writes; Windows pre-sets its inbox apps there at first sign-in, and that choice outlives
+# removing them. SFTA.ps1 (PS-SFTA, MIT) computes the same hash (and the classic UserChoice for older
+# builds) after checking that it reproduces the hashes already on this machine. Windows still asks
+# "Select an app" for a type while any app that can open it has not been announced to the user, so
+# each handler also gets its ApplicationAssociationToasts entry, as Windows writes once it has asked.
+$defaultsSet = 0; $defaultsTotal = 0; $typesLeft = @(); $defaultsBlocked = $null
+function Set-UserDefaults {
+    $todo = @(foreach ($d in $userDefaults) {
+        foreach ($pair in $d.Pairs) { $type, $progId = $pair -split ':', 2; [pscustomobject]@{ App = $d.App; Type = $type; ProgId = $progId } }
+    })
+    if (-not $todo.Count) { return }
+    Write-Step 'Default apps'
+    $script:defaultsTotal = $todo.Count
+    $sfta = Join-Path $PSScriptRoot 'SFTA\SFTA.ps1'
+    $blocked = $null
+    if ((Get-ConsoleUserSid) -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {
+        $blocked = 'the installer was elevated as a different user than the one signed in'
+    } elseif (-not (Test-Path -LiteralPath $sfta)) {
+        $blocked = 'SFTA\SFTA.ps1 is missing next to this script'
+    } else {
+        try {
+            . $sfta
+            $plan = Get-UclWritePlan
+            if ($plan.Action -eq 'refuse') { $blocked = $plan.Reason }
+            elseif ((Test-UclSelfCheck -Quiet) -eq 'mismatch') { $blocked = 'this Windows build hashes default apps in a way SFTA.ps1 does not know' }
+        } catch { $blocked = "SFTA.ps1 could not load: $($_.Exception.Message)" }
+    }
+    if ($blocked) { Write-Host "   Cannot set default apps: $blocked" -ForegroundColor Yellow; $script:defaultsBlocked = $blocked }
+
+    $apps = @(Get-RegisteredApps)
+    $toasts = $hkcu.CreateSubKey('Software\Microsoft\Windows\CurrentVersion\ApplicationAssociationToasts')
+    try {
+        foreach ($app in @($todo | Group-Object App)) {
+            $left = @()
+            foreach ($d in $app.Group) {
+                if (-not $blocked) {
+                    try {
+                        $null = Set-FTA -ProgId $d.ProgId -Extension $d.Type -SkipSelfCheck
+                        foreach ($id in Get-TypeHandlers $d.Type $apps) {
+                            if ($null -eq $toasts.GetValue("${id}_$($d.Type)")) { $toasts.SetValue("${id}_$($d.Type)", 0, [Microsoft.Win32.RegistryValueKind]::DWord) }
+                        }
+                        $script:defaultsSet++
+                        continue
+                    } catch { Write-Host "   $($app.Name) $($d.Type): $($_.Exception.Message)" -ForegroundColor Yellow }
+                }
+                $left += $d.Type
+            }
+            Write-Host "   $($app.Name): default for $($app.Count - $left.Count) of $($app.Count) types"
+            if ($left.Count) { $script:typesLeft += "$($app.Name): $($left -join ' ')" }
+        }
+    } finally { $toasts.Close() }
+}
+if (-not $NoAssociations) { Set-UserDefaults }
 
 Write-Step 'Summary'
 Write-Host "   Installed:          $($installed.Count)"
 Write-Host "   Already installed:  $($present.Count)"
+if ($shortcutsRemoved.Count) { Write-Host "   Desktop shortcuts:  removed $($shortcutsRemoved -join ', ')" }
 if ($reboot.Count) { Write-Host "   Reboot to finish:   $($reboot -join ', ')" -ForegroundColor Yellow }
 if ($failed.Count) {
     Write-Host "   Failed:             $($failed.Count)" -ForegroundColor Red
@@ -588,8 +850,10 @@ if ($failed.Count) {
     Write-Host '   Failed:             0' -ForegroundColor Green
 }
 if (-not $NoAssociations) {
-    Write-Host "   Default app types:  $assocSet"
-    foreach ($m in $assocMissing) { Write-Host "     not set: $m" -ForegroundColor Yellow }
+    Write-Host "   Default app types:  $defaultsSet of $defaultsTotal set"
+    if ($defaultsBlocked) { Write-Host "     not set because $defaultsBlocked" -ForegroundColor Yellow }
+    foreach ($m in $typesLeft) { Write-Host "     not set: $m (set these in Settings > Default apps)" -ForegroundColor Yellow }
+    foreach ($m in $assocMissing) { Write-Host "     no handler: $m" -ForegroundColor Yellow }
 }
 if ($logFile) { Stop-Transcript | Out-Null; Write-Host "`nLog: $logFile" }
 Read-Host "`nPress Enter to close"

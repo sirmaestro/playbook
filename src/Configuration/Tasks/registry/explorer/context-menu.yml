@@ -7,6 +7,18 @@ actions:
   # Enables the classic right click context menu in Explorer on Windows 11
   - !registryValue: {path: 'HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32', value: '', type: REG_SZ, data: '', option: "configure-lcm"}
 
+  # === Hide 'Print' from the .bat and .cmd context menu
+  # sophia: PrintCMDContext
+  - !registryValue: {path: 'HKCR\batfile\shell\print', value: 'ProgrammaticAccessOnly', type: REG_SZ, data: ''}
+  - !registryValue: {path: 'HKCR\cmdfile\shell\print', value: 'ProgrammaticAccessOnly', type: REG_SZ, data: ''}
+
+  # === Hide 'Look for an app in the Microsoft Store' in the 'Open with' dialog
+  # ------> Separate from NoInternetOpenWith (privacy.yml), which only turns off the web file-association lookup.
+  # ------> https://admx.help/?Category=Windows_11_2022&Policy=Microsoft.Policies.WindowsExplorer::NoUseStoreOpenWith
+  # sophia: UseStoreOpenWith
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\Explorer', value: 'NoUseStoreOpenWith', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\Explorer', value: 'NoUseStoreOpenWith', type: REG_DWORD, data: '1'}
+
   # === Add Take Ownership to the context menu.
   - !registryKey: {path: 'HKCR\*\shell\runas'}
   - !registryValue: {path: 'HKCR\*\shell\runas', value: '', type: REG_SZ, data: 'Take Ownership'}

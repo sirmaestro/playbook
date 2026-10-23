@@ -18,7 +18,24 @@ actions:
     command: 'robocopy "Licenses" "%SystemDrive%\Licenses" /E /PURGE /IM /IT /NP'
     ignoreErrors: true
     weight: 30
-    
+
+  # ------> App installer, run by the user after the playbook (Executables would be gone by then).
+  # ------> No /PURGE on the root: it keeps the install-apps-*.log transcripts the script writes next to itself.
+  - !cmd:
+    exeDir: true
+    command: 'robocopy "." "%ProgramData%\WinDebloat\Install Apps" INSTALL-APPS.cmd INSTALL-APPS.ps1 assoc.ps1 /IM /IT /NP & robocopy "Apps" "%ProgramData%\WinDebloat\Install Apps\Apps" /E /PURGE /IM /IT /NP & robocopy "SFTA" "%ProgramData%\WinDebloat\Install Apps\SFTA" /E /PURGE /IM /IT /NP'
+    ignoreErrors: true
+    weight: 10
+  - !powerShell:
+    weight: 10
+    command: >-
+      $dir = Join-Path $env:ProgramData 'WinDebloat\Install Apps';
+      if (-not (Test-Path -LiteralPath (Join-Path $dir 'INSTALL-APPS.cmd'))) { throw "INSTALL-APPS.cmd was not copied to $dir" };
+      $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Install Apps.lnk'));
+      $lnk.TargetPath = Join-Path $dir 'INSTALL-APPS.cmd'; $lnk.WorkingDirectory = $dir;
+      $lnk.Description = 'Install app groups with winget (run once after the playbook, while online)';
+      $lnk.Save()
+
   - !cmd:
     exeDir: true
     command: 'copy /y "hosts" "%WINDIR%\System32\drivers\etc\hosts"'

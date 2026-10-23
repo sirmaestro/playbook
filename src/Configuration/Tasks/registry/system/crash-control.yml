@@ -11,3 +11,6 @@ actions:
     # ------> Configured to drop a -> Small memory dump (64KB)
     # ------> https://support.microsoft.com/en-us/help/254649/overview-of-memory-dump-file-options-for-windows
   - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\CrashControl', value: 'CrashDumpEnabled', type: REG_DWORD, data: '3'}
+    # === Display the Stop error code and parameters on the blue screen - Enabled
+    # sophia: BSoDStopError
+  - !registryValue: {path: 'HKLM\SYSTEM\ControlSet001\Control\CrashControl', value: 'DisplayParameters', type: REG_DWORD, data: '1'}

@@ -6,26 +6,15 @@
       "Packages": [
         { "PackageIdentifier": "TheDocumentFoundation.LibreOffice" },
         { "PackageIdentifier": "Nikse.SubtitleEdit" },
-        { "PackageIdentifier": "SumatraPDF.SumatraPDF" },
-        { "PackageIdentifier": "DuongDieuPhap.ImageGlass" }
+        { "PackageIdentifier": "StirlingTools.StirlingPDF" },
+        { "PackageIdentifier": "DuongDieuPhap.ImageGlass" },
+        { "PackageIdentifier": "shinchiro.mpv" }
       ],
       "SourceDetails": {
         "Argument": "https://cdn.winget.microsoft.com/cache",
         "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
         "Name": "winget",
         "Type": "Microsoft.PreIndexed.Package"
-      }
-    }
-  ],
-  "GitHubReleases": [
-    {
-      "Name": "mpv",
-      "Repo": "mpv-player/mpv",
-      "Asset": "-x86_64-w64-mingw32.zip",
-      "AddToPath": true,
-      "PostInstall": {
-        "File": "mpv.com",
-        "Arguments": "--register"
       }
     }
   ],
@@ -36,9 +25,10 @@
       "Types": [".odt", ".ods", ".odp", ".odg", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf"]
     },
     {
-      "App": "SumatraPDF",
-      "Match": "\\SumatraPDF.exe",
-      "Types": [".pdf", ".xps", ".oxps"]
+      "App": "Stirling-PDF",
+      "Match": "\\Stirling-PDF.exe",
+      "CreateProgIds": { "Exe": "%ProgramFiles%\\Stirling PDF\\Stirling-PDF.exe" },
+      "Types": [".pdf"]
     },
     {
       "App": "ImageGlass",
@@ -48,13 +38,26 @@
     },
     {
       "App": "mpv",
-      "Match": "\\mpv.exe",
+      "Match": "mpv.exe",
       "Types": [".mp4", ".mkv", ".webm", ".avi", ".mov", ".wmv", ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".flv", ".3gp", ".ogv"]
     },
     {
       "App": "Subtitle Edit",
       "Match": "\\SubtitleEdit.exe",
+      "CreateProgIds": { "Exe": "%ProgramFiles%\\Subtitle Edit\\SubtitleEdit.exe" },
       "Types": [".srt", ".ass", ".ssa", ".vtt", ".sub"]
+    }
+  ],
+  "AppSettings": [
+    {
+      "App": "ImageGlass",
+      "When": "%LOCALAPPDATA%\\Packages\\DuongDieuPhap.ImageGlass_dhvarhd5k2r8t",
+      "JsonFile": "%LOCALAPPDATA%\\Packages\\DuongDieuPhap.ImageGlass_dhvarhd5k2r8t\\LocalCache\\Local\\ImageGlass\\igconfig.json",
+      "Values": { "QuickSetupVersion": 10 }
+    },
+    {
+      "App": "Stirling-PDF",
+      "BlockInbound": "%ProgramFiles%\\Stirling PDF\\runtime\\jre\\bin\\java.exe"
     }
   ],
   "WinGetVersion": "1.29.380"

@@ -112,16 +112,74 @@ Some packages are protected Windows components and return `0x80070032` on per-us
   the `WindowsUpdate\Services\Pending\…\RegisterWithAU` key is consumed by WU.
 - Not yet explained (seen on the VM): `Diagtrack-Listener` autologger `Start` back to `1`, and
   `HKCU\Control Panel\Accessibility\HighContrast\Flags` reset to `126`.
+- **Host hypervisor matters.** With Hyper-V/VBS/Memory integrity on the host, VirtualBox logs `AMD-V is
+  not available` → `fall back to NEM` and runs the guest through WinHvPlatform. In that mode the guest
+  intermittently hung on the post-apply restart (2 of 5: "Restarting" for 40+ min, vCPUs spinning in
+  kernel, zero disk I/O, after the EventLog service had already stopped, so nothing is logged), once
+  froze mid-install, a VM reset wedged VirtualBox Manager, and `debugvm injectnmi` fails with
+  `VERR_NOT_SUP_BY_NEM`. Treat these as environment suspects until reproduced with native AMD-V/VT-x.
+  Recover by ending the large `VBoxHeadless` process (VM goes `aborted`), then `startvm`.
+  Tally by 2026-10-23: the restart hung in 3 of about 13 attempts, plus 2 freezes during installs.
+  `AHCI#0: Port 0 reset` in `VBox.log` is **not** a hang sign: healthy sessions log it too. Judge by
+  static disk counters, a frozen guest clock in screenshots, and
+  `vmmDevHeartbeatFlatlinedTimer: Guest seems to be unresponsive`. After a kill, `showvminfo` briefly
+  fails with `RPC_S_CALL_FAILED` while the session tears down. `tools/vmtest.ps1` now detects hangs
+  (static disk counters for `-StallSec`) and recovers by itself; see AGENTS.md.
+- `shutdown.exe` on 26300 has no `/full` switch (plain `/s` is already a full shutdown; Fast Startup
+  needs `/hybrid`). Given `/full`, it prints its usage text and exits 33 without shutting down, so a
+  script waiting for the power-off waits forever. A wait on a guest that "won't turn off" should
+  first check whether the guest is still live (clock, disk writes).
+- The playbook's `RealTimeIsUniversal=1` (upstream dual-boot fix) makes a VirtualBox guest boot 13 h off
+  (VirtualBox supplies local time) until time sync; harmless, VM-only.
+
+## Default apps on Windows 11 (26300)
+
+- The classic `UserChoice` hash (SetUserFTA/PS-SFTA algorithm, salt `User Choice set via Windows User
+  Experience {D18B6DD5-6124-4341-9318-804003BAFA0B}`) still validates (157/157 on a 26100 host,
+  146/146 on the 26300 VM), **but 26300 ignores it**: every type also has `UserChoiceLatest` (Hash +
+  `ProgId\ProgId`), which wins; deleted, Windows recreates it with the previous choice. `assoc.ps1` only
+  sets class defaults; `INSTALL-APPS.ps1` writes `UserChoiceLatest` with the vendored `SFTA\SFTA.ps1`.
+- The `UserChoiceLatest` hash *is* reproducible: `SFTA.ps1` 2.0.1 from github.com/ComoEstaisAmigos/PS-SFTA
+  (MIT; salt read from `windows.storage.dll`, `HKLM\SOFTWARE\Microsoft\SQMClient` MachineId, the
+  `UserChoiceLatest\ProgId` key's write time) reproduced 157/157 Windows-written hashes on 26300.9457
+  (`SystemProtectedUserData\<SID>\AnyoneRead\AppDefaults\HashVersion=1`), with and without Windows'
+  own encoder. A valid hash alone still shows the picker on types where any known handler is "new":
+  every ProgId from `HKCR\<type>\OpenWithProgids`, the user's `FileExts\<type>\OpenWithProgids` and
+  each `RegisteredApplications` app's `Capabilities\FileAssociations` needs a
+  `HKCU\...\ApplicationAssociationToasts` value `<ProgId>_<type>`=0 (Photo Viewer declares `.gif` as
+  `PhotoViewer.FileAssoc.Gif`, in neither list). With both, 93 types across 8 apps opened directly,
+  also after a reboot (VM, 2026-10-23). The picker then lists the written app as "Default app".
+- Opening a sample with `explorer.exe <file>` browses into archives as folders; test those with
+  `cmd /c start "" <file>`. `Invoke-Item` blocks while the OpenWith picker is up.
+- `UserChoice` carries a Deny ACE on Set Value: delete it with `RegDeleteKey` (DELETE right), not .NET
+  `DeleteSubKeyTree`, which silently does nothing; `RegDeleteKey` fails with 5 while subkeys exist.
+- Settings deep links: `ms-settings:defaultapps?registeredAppMachine=<name>` / `registeredAppUser=<name>`
+  (HKLM / HKCU `RegisteredApplications` value name) open that app's page. A packaged app's `AppX<hash>`
+  entry opens only the main Default apps page, and `registeredAUMID=` shows just its URL protocol; use
+  the app's own non-AppX entry (ImageGlass MSIX writes `HKCU ... ImageGlass` after `--ig-set-default-viewer`).
+- Which types "just work": Windows seeds `UserChoiceLatest` at the user's first sign-in for the types
+  its inbox apps own (Photos `AppX43hnx...`, Media Player `AppXqj98...`, Raw `AppX9rkaq...`, Edge
+  `MSEdgeHTM` for .htm/.svg/.xml, CompressedFolder/CABFolder). Those keep winning after the playbook
+  removes the app (the ProgIds no longer exist), so the type shows the picker until set in Settings.
+  Types with no seeded entry (LibreOffice, Subtitle Edit, most 7-Zip types, .flv/.jxl/.psd) fall back
+  to the class default `assoc.ps1` sets and open directly. Verified on the 26300 VM, 2026-10-23.
+- The `DefaultAssociationsConfiguration` policy (HKLM\SOFTWARE\Policies\Microsoft\Windows\System,
+  XML of `<Association Identifier ProgId ApplicationName>`) changed nothing on 26300 Pro for the
+  existing user after a reboot: the seeded entries stayed (tested for 40 mpv/ImageGlass types).
+- UCPD is already `Disabled` after the playbook, so it is not what blocks `.pdf`/`http`.
+- Check defaults by opening sample files in the user's session (Limited scheduled task) and watching
+  what launches (`OpenWith` = the picker), not by reading the registry or via `AssocQueryString` from a
+  `guestcontrol` session (it reports no association even when one exists).
 
 ## Monorepo / git gotchas (`debloat-tool/`)
 
 - **A folder with its own `.git` is silently skipped by `git add`** (or added as a bare gitlink). That is
   how a first push shipped a workflow building `debloat-tool/src` without the folder ("The directory name
   is invalid" on the runner). `debloat-tool/` is a `git subtree` import — never put a nested `.git` back.
-- **Line endings:** the playbook and the tool both store a mix of CRLF and LF files, and the maintainer's
-  machine has `core.autocrlf=true`, so a fresh clone can show "modified" files and `git subtree` refuses to
-  run. Use `git -c core.autocrlf=false` for subtree/clone operations, and when committing edits make each
-  file's line endings match its stored blob, or a one-line change becomes a whole-file diff.
+- **Line endings:** the root `.gitattributes` (`* text=auto eol=crlf`) stores every text file LF and checks
+  it out CRLF regardless of `core.autocrlf`, so the packaged `.apbx` always gets CRLF (AME needs it). Don't
+  add per-file overrides or commit CRLF blobs. Upstream Revision Tool stores a CRLF/LF mix, so subtree pulls
+  must renormalize: `git -c merge.renormalize=true subtree pull ...`, or every upstream-CRLF file conflicts.
 - **VS Code locks open folders** on Windows (`mv`/`Move-Item` fail with "being used by another process").
   Work around it in a temp clone (`git -c core.autocrlf=false clone`), then `git fetch` the result back and
   `git update-ref` + `git reset` when the working-tree files already match.

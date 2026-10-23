@@ -24,8 +24,7 @@
     {
       "App": "Firefox",
       "Match": "\\firefox.exe",
-      "Types": [".htm", ".html", ".shtml", ".xht", ".xhtml"],
-      "DefaultAppsPage": true
+      "Types": [".htm", ".html", ".shtml", ".xht", ".xhtml"]
     },
     {
       "App": "7-Zip",

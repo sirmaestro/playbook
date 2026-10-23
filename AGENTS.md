@@ -37,7 +37,7 @@ playbook.conf (UI pages, options, requirements)
       ▼
 Configuration/main.yml  (entry point, privilege: Admin, runs in order)
   ├─ registry/os-info/{edition,oem-info}.yml
-  ├─ Tasks/start.yml            copy files, hosts, VCRedist, install WinDebloat Tool, ngen, power plan
+  ├─ Tasks/start.yml            copy files (incl. app installer), hosts, VCRedist, install WinDebloat Tool, ngen, power plan
   ├─ packages/app-win32.yml     Edge, OneDrive, Teams removal   (before win-sxs: avoids leftovers)
   ├─ packages/win-sxs.yml       wdtool winpackage removals, Defender toggle, telemetry removal
   ├─ packages/appx.yml          UWP removal
@@ -62,7 +62,7 @@ exactly where each WinDebloat category lands.
 | `Configuration/Tasks/registry/<area>/*.yml` | Registry tweaks by area: `explorer`, `privacy`, `security`, `system`, `updates`, `misc`, `os-info` |
 | `Configuration/Tasks/packages/*.yml` | Removal of Win32 / WinSxS / Appx packages |
 | `Executables/` | Scripts/assets AME copies next to the run; referenced with `exeDir: true`. Flat, plus `Licenses/` and `Apps/` |
-| `Executables/Apps/*.json` | Post-playbook winget app groups (`winget export` format) for `INSTALL-APPS.cmd`: `base` installs first, the rest are picked from a menu |
+| `Executables/Apps/*.json` | Post-playbook winget app groups (`winget export` format) for `INSTALL-APPS.cmd`: `base` installs first, the rest are picked from a menu. `start.yml` copies the installer (`INSTALL-APPS.*`, `assoc.ps1`, `Apps\`, `SFTA\`) to `%ProgramData%\WinDebloat\Install Apps` and puts an "Install Apps" shortcut on the Public Desktop |
 | `docs/` | Agent references (this fork): extension strategy, distilled learnings/gotchas |
 
 Outside `src/`: `debloat-tool/` is the WinDebloat Tool source (Flutter/Dart + Rust bridge, Inno Setup
@@ -92,7 +92,7 @@ Common keys:
 - Radio: `disable-defender`/`enable-defender`, `disable-hibernate`/`enable-hibernate`
 - Checkbox: `remove-edge`, `remove-onedrive`, `remove-winsxs-ai`, `remove-teams`, `remove-appx-photos`, `remove-appx-devhome`, `remove-appx-xbox`, `remove-appx-yourphone`, `configure-darkmode`, `configure-lcm`, `configure-te`, `remove-pinned-items-startmenu`, `disable-automatic-maintenance` (the `configure-wallpaper` option was removed in this fork)
 - WinDebloat checkboxes: `windebloat-explorer-cleanup`, `windebloat-show-hidden-files`, `windebloat-quiet-shell`,
-  `windebloat-regional-formats` (default off), `windebloat-remove-capabilities`, `windebloat-mmcss`,
+  `windebloat-regional-formats`, `windebloat-remove-capabilities`, `windebloat-mmcss`,
   `windebloat-prefer-ipv4`, `windebloat-ps-remotesigned`. Some WinDebloat tweaks reuse existing options instead:
   AI policies/tasks/`WSAIFabricSvc` → `remove-winsxs-ai`; Game Bar/DVR off → `remove-appx-xbox` (#74);
   Smart App Control off → `disable-defender`. Privacy, telemetry, scheduled-task, service and sponsored-appx
@@ -145,6 +145,9 @@ $env:VMTEST_GUEST_PASSWORD = '<guest password>'      # VMTEST_GUEST_USER default
 pwsh tools\vmtest.ps1 -Build                         # build package + full run, VM powered off after
 pwsh tools\vmtest.ps1 -Build -KeepRunning            # leave the VM up for inspection
 pwsh tools\vmtest.ps1 -ParseOnly out\vmtest\<run>    # re-summarise a past run's logs (no VM)
+pwsh tools\vmtest.ps1 -Build -AppsGroups all         # apply, reboot, then run INSTALL-APPS (guest needs network)
+pwsh tools\vmtest.ps1 -AppsOnly -AppsGroups base     # INSTALL-APPS only, on a VM left up by -KeepRunning
+pwsh tools\vmtest.ps1 -Build -Layers -CacheDownloads -AppsGroups base,media-office   # fast iteration (below)
 ```
 
 What a run does:
@@ -171,6 +174,88 @@ What a run does:
 8. **Revert.** Runs `-RevertScript <file.ps1>` the same way under `-RevertTimeoutMin`. Without the
    flag, `revert.status` is `not-run`, because the playbook has no revert path yet. (`revert.yml` is an
    `onUpgrade` rollback; it runs only on a re-apply.)
+9. **Apps (optional).** With `-AppsGroups`, reboots the guest, checks the playbook installed the app
+   installer and its desktop shortcut, and runs `%ProgramData%\WinDebloat\Install Apps\INSTALL-APPS.ps1
+   -Group <groups>` from the same elevated interactive task, under
+   `-AppsTimeoutMin` (default 240). The script always exits 0, so `summary.json` → `apps.summary` is
+   parsed from its closing Summary block (installed / failed / reboot-to-finish / default-app types
+   set of total, types not set, types with no handler). Any failed app fails the run; its transcript
+   is pulled to `logs\apps\`. The post-apply reboot waits up to `-RebootTimeoutSec` (default 2400).
+   Default apps are written directly: Windows 11 (26300) keeps the real choice in `UserChoiceLatest`,
+   which the vendored `Executables/SFTA/SFTA.ps1` (PS-SFTA, MIT) hashes as Settings does, plus an
+   `ApplicationAssociationToasts` entry per handler so Windows does not ask again (see
+   docs/references-learnings.md). Verify defaults by opening files in the user's session, not by
+   reading the registry.
+
+### Snapshot layers (`-Layers`): fast iteration
+
+A full run costs about 22 minutes. Most of that is the apply (about 8 min) and the app installs (about 11 min
+for base + media-office; mpv's GitHub download and Firefox are the slowest). With `-Layers`, the
+harness caches finished stages as offline VirtualBox snapshots and reuses them, like image layers:
+
+| Layer | Snapshot | Holds | Cache key (sha256) |
+|---|---|---|---|
+| L1 | `vmtest-L1-<key>` | the applied playbook, shut down before its first post-apply boot | base snapshot UUID, AME CLI, options, every package file **except** `INSTALL-APPS.cmd/.ps1` and `Apps/*.json` |
+| L2 | `vmtest-L2-<key>` | L1 plus the `-AppsGroups` installed | L1 key, the groups, `Apps/*.json`; expires after `-AppsLayerMaxAgeHours` (24) |
+
+- **Building.** L1 replaces the post-apply reboot with `shutdown /s /full`, an offline snapshot, and a
+  boot. So L1 costs nothing extra, and every restore replays the same first boot. L2 is taken after a
+  clean app run. Layers are built only from clean results (no failed or unconfirmed tweaks, no failed
+  apps, no `-RevertScript`).
+- **Using.** A hit restores the deepest usable layer and copies the current installer and `Apps` lists in
+  (guest-agent `SyncApps`, mirroring `start.yml`). The apply verdict recorded when the layer was built
+  goes into `summary.json` (`apply.cachedFrom`), and only the remaining steps run. With an L2 hit,
+  INSTALL-APPS reruns against the installed apps (about 1 min). That exercises default apps and the
+  summary, not the install code.
+- **Flags.** `-FreshApps` ignores L2 (use it when the install logic changed). `-RebuildLayers` ignores
+  all hits. `-ClearLayers` deletes every `vmtest-L*` snapshot. `-KeepLayers` (2) is kept per kind (L1s,
+  and L2s per L1); older layers are pruned.
+- **Records.** `out/vmtest/layers/<name>.json` holds the key inputs, creation time, the run that built
+  the layer, and the cached verdict. A snapshot without a record is never used.
+
+Measured times (2026-10-23, base + media-office, with `-CacheDownloads`):
+
+| Change | Layer used | Time |
+|---|---|---|
+| Playbook YAML or Executables | none | ~22 min (the run also builds both layers) |
+| `INSTALL-APPS.ps1` install logic, or `Apps/*.json` (or `-FreshApps`) | L1 | ~6 min: L1 boot 1–2.5 min, apps 3.4 min (11–14 min uncached) |
+| `INSTALL-APPS.ps1` default-apps or summary code | L2 | ~1.7 min end to end, build included |
+
+The first boot from L1 can take a while: the Store updates inbox apps right after boot, and the
+guest is briefly slow to answer. The harness retries guest hashing for that reason.
+
+Layers are for iterating. The definition of done still needs an **uncached** run (no `-Layers`, or
+`-RebuildLayers`): rebuilt package, applied from the clean snapshot, error count compared. Restoring a
+layer doesn't re-test what happens before it, such as delivery by `start.yml` or Store updates that
+depend on uptime. The VM has 16 GB RAM, so layers are offline snapshots (disk only, a few GB each);
+never take live ones.
+
+**Download cache (`-CacheDownloads`).** This avoids re-downloading app installers in the guest, whose
+network is much slower than the host's. It is a testing aid only; the files and checks stay the same.
+- *GitHub release assets* (mpv; App Installer itself when INSTALL-APPS updates winget) are kept in
+  `tools/cache/downloads/`. They are copied in, and INSTALL-APPS's `-DownloadCache` uses one only when
+  its SHA-256 matches the release's published digest. New downloads are copied back out.
+- *winget packages*: for each one in the selected groups, the host's `winget show` gives the version,
+  URL and SHA-256 of the default installer. The host downloads it into
+  `tools/cache/downloads/winget/<Id>.<Version>/`, and the harness copies it to the guest's
+  `%TEMP%\WinGet\<Id>.<Version>\<sha256>`. winget 1.29 reuses a file there when the hash matches
+  ("Existing installer file hash matches"). On any mismatch (new version, different installer) it
+  just downloads. Dependencies such as LibreOffice's VC++ runtime are not seeded. Verified: all 8
+  winget installers for base + media-office were reused (`REUSED` in winget's DiagOutputDir logs).
+  Seeding is skipped on an L2 hit, where the apps are already installed.
+- The cache grows with each new version. Delete `tools/cache/downloads/` to reset it.
+
+**Hangs.** The host runs Hyper-V, so VirtualBox uses NEM, and the guest sometimes freezes on restart
+or mid-install (busy vCPUs, zero disk I/O, frozen guest clock). The harness detects this itself:
+- When restarting, booting or shutting down for a layer, the guest has to do disk I/O. If the disk
+  counters (`VBoxManage debugvm <vm> statistics`) don't move for `-StallSec` (360), the harness kills
+  that VM's `VBoxHeadless` (PID from `VBox.log`; `controlvm poweroff`/reset can wedge) and boots it
+  again, at most twice per wait. A hung layer shutdown is not snapshotted.
+- During a job, a hang means unanswered status polls *and* a static disk. The job is reported as
+  `vm-hung`, a harness error (exit 2): rerun it.
+- Each recovery is listed in `summary.json` → `hangs`. Details are in
+  [docs/references-learnings.md](docs/references-learnings.md). Layers also shorten the exposure: a
+  hang costs only the current layer.
 
 Exit codes: `0` = pass, `1` = any failed/unconfirmed action, non-success engine result or failed/hung
 revert, `2` = harness or VM error (including misaligned log pairing).

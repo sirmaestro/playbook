@@ -58,6 +58,10 @@ actions:
   # === Disable ' - Shortcut.' text on shortcut creation.
   - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer', value: 'link', type: REG_BINARY, data: '00000000'}
   - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer', value: 'link', type: REG_BINARY, data: '00000000'}
+  # ------> Newer method that Explorer reads on current builds; kept alongside 'link' above.
+  # sophia: ShortcutsSuffix
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\NamingTemplates', value: 'ShortcutNameTemplate', type: REG_SZ, data: '%s.lnk'}
+  - !registryValue: {path: 'HKU\.DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\NamingTemplates', value: 'ShortcutNameTemplate', type: REG_SZ, data: '%s.lnk'}
   
   # === Always show more details in a file copy dialog - Enabled
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\OperationStatusManager', value: 'EnthusiastMode', type: REG_DWORD, data: '1'}
@@ -107,6 +111,18 @@ actions:
   # === 'Show recommendations for tips, shortcuts, new apps, and more' - Disabled
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_IrisRecommendations', type: REG_DWORD, data: '0'}
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_IrisRecommendations', type: REG_DWORD, data: '0'}
+
+  # === 'Show recently added apps' in Start - Disabled (the policy also locks the Settings toggle)
+  # ------> https://admx.help/?Category=Windows_11_2022&Policy=Microsoft.Policies.StartMenu::HideRecentlyAddedApps
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Start', value: 'ShowRecentList', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Start', value: 'ShowRecentList', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer', value: 'HideRecentlyAddedApps', type: REG_DWORD, data: '1'}
+
+  # === Remove the Recommended section from Start - Enabled (not applicable to Home)
+  # ------> https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-start#hiderecommendedsection
+  # sophia: StartRecommendedSection
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\Explorer', value: 'HideRecommendedSection', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\Explorer', value: 'HideRecommendedSection', type: REG_DWORD, data: '1'}
 
   # === 'Show account related notifications occasionally in Start' - Disabled
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_AccountNotifications', type: REG_DWORD, data: '0'}

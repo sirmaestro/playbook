@@ -17,9 +17,9 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Prepare', 'Start', 'Status', 'Stop', 'Collect')]
+    [ValidateSet('Prepare', 'Start', 'Status', 'Stop', 'Collect', 'Probe', 'SyncApps')]
     [string]$Mode,
-    [ValidateSet('apply', 'revert')]
+    [ValidateSet('apply', 'revert', 'apps')]
     [string]$Job = 'apply',
     [string]$Root = 'C:\vmtest',
     [switch]$NoDefenderRemediation,
@@ -33,6 +33,7 @@ $stateDir = Join-Path $Root 'state'
 $jobsDir = Join-Path $Root 'jobs'
 $cliDir = Join-Path $Root 'cli'
 $pbDir = Join-Path $Root 'pb'
+$appsDir = Join-Path $env:ProgramData 'WinDebloat\Install Apps'
 
 function Write-VmtResult {
     param([hashtable]$Result, [int]$ExitCode)
@@ -178,6 +179,16 @@ if ($Mode -eq 'Status') {
     Write-VmtResult -Result (Get-VmtJobStatus $Job) -ExitCode 0
 }
 
+# Boot identity plus desktop readiness, so the host can tell a finished reboot from a guest that
+# has not gone down yet, or one whose execution service is up before the user's desktop is.
+if ($Mode -eq 'Probe') {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
+    Write-VmtResult -ExitCode 0 -Result ([ordered]@{
+        bootTime         = $os.LastBootUpTime.ToUniversalTime().ToString('o')
+        interactiveUsers = @(Get-VmtInteractiveUser)
+    })
+}
+
 if (-not $Elevated -and -not (Test-VmtElevated)) {
     $sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
     $lua = Get-VmtRegValue $sys 'EnableLUA'
@@ -271,6 +282,28 @@ try {
                 # Redirect first: "echo 0>file" would redirect stream 0 instead of writing "0".
                 $body = @('@echo off', "cd /d `"$cliDir`"", ">`"$($paths.Started)`" echo %DATE% %TIME%", $line, ">`"$($paths.ExitFile)`" echo %ERRORLEVEL%")
             }
+            elseif ($Job -eq 'apps') {
+                # The copy start.yml installed, as the user's "Install Apps" desktop shortcut runs it.
+                # The task is already elevated, so the script's own RunAs relaunch is skipped. Its closing
+                # Read-Host prompt gets blank lines from a file instead of waiting on a console.
+                $script = Join-Path $appsDir 'INSTALL-APPS.ps1'
+                if (-not (Test-Path -LiteralPath $script)) { throw "The playbook did not install INSTALL-APPS.ps1 to $appsDir" }
+                $shortcut = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Install Apps.lnk'
+                if (-not (Test-Path -LiteralPath $shortcut)) { throw "The playbook did not create $shortcut" }
+                $groupFile = Join-Path $inDir 'apps-groups.txt'
+                $groups = @('all')
+                if (Test-Path -LiteralPath $groupFile) {
+                    $groups = @(Get-Content -LiteralPath $groupFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[A-Za-z0-9_-]+$' })
+                }
+                if ($groups.Count -eq 0) { throw "No valid group names in $groupFile" }
+                $enter = Join-Path $paths.Dir 'enter.txt'
+                [IO.File]::WriteAllText($enter, ("`r`n" * 50))
+                # The host's download cache (vmtest -CacheDownloads) is copied here when enabled.
+                $dlCache = Join-Path $Root 'dl'
+                $cacheArg = if (Test-Path -LiteralPath $dlCache) { " -DownloadCache `"$dlCache`"" } else { '' }
+                $line = "`"$PSHOME\powershell.exe`" -NoProfile -ExecutionPolicy Bypass -File `"$script`" -Group $($groups -join ',')$cacheArg <`"$enter`" >`"$($paths.Stdout)`" 2>&1"
+                $body = @('@echo off', "cd /d `"$(Split-Path -Parent $script)`"", ">`"$($paths.Started)`" echo %DATE% %TIME%", $line, ">`"$($paths.ExitFile)`" echo %ERRORLEVEL%")
+            }
             else {
                 $script = Join-Path $inDir 'revert.ps1'
                 if (-not (Test-Path -LiteralPath $script)) { throw "No revert script at $script" }
@@ -295,6 +328,46 @@ try {
             $result = [ordered]@{ job = $Job; task = $paths.Task; runAs = $users[0]; started = (Test-Path -LiteralPath $paths.Started); lastTaskResult = $info.LastTaskResult; command = $line }
             if (-not $result.started) { $result.error = "Task $($paths.Task) did not start within 60s (LastTaskResult $($info.LastTaskResult))"; Write-VmtResult -Result $result -ExitCode 30 }
             Write-VmtResult -Result $result -ExitCode 0
+        }
+
+        'SyncApps' {
+            # A restored snapshot layer holds an older installer: copy the current package's
+            # INSTALL-APPS files and Apps lists to where start.yml puts them (Apps mirrored, like /PURGE).
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zipPath = Join-Path $inDir 'playbook.zip'
+            if (-not (Test-Path -LiteralPath $zipPath)) { throw "Missing $zipPath" }
+            if (-not (Test-Path -LiteralPath $appsDir)) { throw "$appsDir does not exist; the layer was not built from an applied playbook" }
+            $appsSub = Join-Path $appsDir 'Apps'
+            if (Test-Path -LiteralPath $appsSub) { Remove-Item -LiteralPath $appsSub -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $appsSub | Out-Null
+            $top = @('Executables\INSTALL-APPS.cmd', 'Executables\INSTALL-APPS.ps1', 'Executables\assoc.ps1')
+            $copied = @()
+            $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
+            try {
+                foreach ($entry in $zip.Entries) {
+                    $name = $entry.FullName.Replace('/', '\')
+                    $dest = $null
+                    if ($top -contains $name) { $dest = Join-Path $appsDir $entry.Name }
+                    elseif ($name -like 'Executables\Apps\*' -and $entry.Name) { $dest = Join-Path $appsSub $name.Substring('Executables\Apps\'.Length) }
+                    elseif ($name -like 'Executables\SFTA\*' -and $entry.Name) { $dest = Join-Path $appsDir $name.Substring('Executables\'.Length) }
+                    if (-not $dest) { continue }
+                    $destDir = Split-Path -Parent $dest
+                    if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
+                    [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
+                    # Write it through to disk now: a guest freeze or reset soon after a sync
+                    # otherwise leaves the file at its full size but all zeros.
+                    $fs = [IO.File]::Open($dest, 'Open', 'ReadWrite')
+                    try { $fs.Flush($true) } finally { $fs.Dispose() }
+                    $copied += $name
+                }
+            }
+            finally { $zip.Dispose() }
+            $installer = Join-Path $appsDir 'INSTALL-APPS.ps1'
+            if (-not (Test-Path -LiteralPath $installer)) { throw "INSTALL-APPS.ps1 not found in $zipPath" }
+            Write-VmtResult -ExitCode 0 -Result ([ordered]@{
+                copied          = $copied
+                installerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+            })
         }
 
         'Stop' {
@@ -330,6 +403,12 @@ try {
             $counts['jobs'] = Copy-VmtTree -Source $jobsDir -Destination (Join-Path $collect 'jobs') -Errors $errors
             $counts['state'] = Copy-VmtTree -Source $stateDir -Destination (Join-Path $collect 'state') -Errors $errors
             $counts['ProgramData-AME-Logs'] = Copy-VmtTree -Source "$env:ProgramData\AME\Logs" -Destination (Join-Path $collect 'ProgramData-AME-Logs') -Errors $errors
+            # INSTALL-APPS.ps1 writes its transcript next to itself.
+            $counts['apps-transcripts'] = 0
+            foreach ($log in @(Get-ChildItem -LiteralPath $appsDir -Filter 'install-apps-*.log' -File -ErrorAction SilentlyContinue)) {
+                try { Copy-VmtFileShared -Source $log.FullName -Destination (Join-Path $collect "apps\$($log.Name)"); $counts['apps-transcripts']++ }
+                catch { [void]$errors.Add("$($log.FullName): $($_.Exception.Message)") }
+            }
             $manifest = [ordered]@{ counts = $counts; errors = @($errors) }
             [IO.File]::WriteAllText((Join-Path $collect 'collect.json'), (ConvertTo-Json -InputObject $manifest -Depth 4))
 

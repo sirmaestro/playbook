@@ -27,6 +27,10 @@ actions:
   # ------> https://www.askvg.com/fix-how-to-stop-automatic-forced-upgrade-to-feature-updates-in-windows-10/
   - !registryValue: {path: 'HKLM\SYSTEM\Setup\UpgradeNotification', value: 'UpgradeAvailable', type: REG_DWORD, data: '0'}
 
+  # === 'Get the latest updates as soon as they're available' - Off
+  # sophia: WindowsLatestUpdate
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings', value: 'IsContinuousInnovationOptedIn', type: REG_DWORD, data: '0'}
+
   # === Disable Malicious Software Reporting tool diagnostic data - Enabled
   # ------> https://admx.help/?Category=Windows10_Telemetry&Policy=Microsoft.Policies.Win10Privacy::DontReportInfection
   - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\MRT', value: 'DontReportInfectionInformation', type: REG_DWORD, data: '1'}

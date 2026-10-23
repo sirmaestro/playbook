@@ -15,3 +15,5 @@ src/Executables/install-apps-*.log
 # VM harness: build output, run logs, downloaded binaries (AME CLI, tool installer)
 out/
 tools/cache/
+
+/reference

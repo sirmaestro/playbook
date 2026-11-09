@@ -43,7 +43,14 @@ abstract base class const WinPackageService({
     if (error is WinSxSException) {
       return UnexpectedNetworkException(message: error.message, cause: error);
     }
-    return UnexpectedNetworkException(cause: error);
+    if (error is ProcessException) {
+      final String msg = error.message.trim();
+      return UnexpectedNetworkException(
+        message: msg.isNotEmpty ? msg : error.toString(),
+        cause: error,
+      );
+    }
+    return UnexpectedNetworkException(message: error.toString(), cause: error);
   };
 
   @override
@@ -89,7 +96,25 @@ abstract base class const WinPackageService({
         success: (d) => d,
         failure: (e) => throw e,
       );
-      await _installCab(package.path, packageVersion: package.version, force: force);
+      try {
+        await _installCab(package.path, packageVersion: package.version, force: force);
+      } catch (error) {
+        if (_repository.findBundledPackage(_type) case final bundledPath?
+            when _repository.fileExists(bundledPath) && !p.equals(package.path, bundledPath)) {
+          logger.w(
+            'winsxs: Failed to install downloaded package, falling back to bundled package: $bundledPath',
+            error: error,
+          );
+          final WinPackageVersion? bundledVersion = parsePackageVersion(
+            p.basenameWithoutExtension(bundledPath),
+          );
+          if (bundledVersion != null) {
+            await _installCab(bundledPath, packageVersion: bundledVersion, force: force);
+            return;
+          }
+        }
+        rethrow;
+      }
     });
   }
 
@@ -214,36 +239,43 @@ final class const AiRemovalService({
       r'C:\Windows\SystemApps\Microsoft.AIFabric.CBS.1.6_8wekyb3d8bbwe\AppxManifest.xml';
 
   @override
-  Future<Result<void>> install({bool force = false}) async {
-    await WinRegistryService.hidePageVisibilitySettings('aicomponents');
-    await WinRegistryService.hidePageVisibilitySettings('privacy-systemaimodels');
-    await runPSCommand('Disable-WindowsOptionalFeature -Online -FeatureName Recall -NoRestart');
+  Future<Result<void>> install({bool force = false}) {
+    return run(() async {
+      await WinRegistryService.hidePageVisibilitySettings('aicomponents');
+      await WinRegistryService.hidePageVisibilitySettings('privacy-systemaimodels');
+      await runPSCommand('Disable-WindowsOptionalFeature -Online -FeatureName Recall -NoRestart');
 
-    (await _appx.removePackages(
-      prefixes: const {'Microsoft.Copilot'},
-      allUsers: true,
-    )).when(success: (_) {}, failure: (e) => throw e);
-    // AIFabric is restored by re-registering its on-disk manifest, so roaming
-    // user data must survive for that restore to re-attach to it.
-    (await _appx.removePackages(
-      prefixes: const {'Microsoft.AIFabric.CBS.1.6'},
-      preserveRoaming: true,
-    )).when(success: (_) {}, failure: (e) => throw e);
+      // Prevent File Explorer from falling back to Windows 10 ribbon when Microsoft.AIFabric.CBS is removed.
+      // - 58375086(1561856655/WindowsAppRuntime_NextIsDefault): Stops Explorer from requesting Windows App SDK 2.0.
+      // - 63366798(497250959): Gating check in newer builds. If enabled, forces Explorer to load AIFabric even when 58375086 is disabled.
+      // - 58375066(890768015/UseCentralWindowsAppRuntimeVersion) - 26X00.9711
+      // - 61199980(WindowsAppRuntime_FallbackToStableFix) - 26X00.9711
+      // - 40012896(Servicing_FileExplorerRibbonFallbackFix): Disables fallback to legacy ribbon when XAML island fails.
+      await WinRegistryService.disableFeatures({58375086, 63366798, 58375066, 61199980, 40012896});
 
-    // Prevent File Explorer from falling back to Windows 10 ribbon when Microsoft.AIFabric.CBS is removed.
-    // Recent Windows builds (26X00.9278+) query Microsoft.AIFabric.CBS when loading Windows App SDK.
-    // If AIFabric is missing, Explorer throws an error and falls back to the legacy ribbon.
-    //
-    // - 58375086(1561856655/WindowsAppRuntime_NextIsDefault): Stops Explorer from requesting Windows App SDK 2.0.
-    // - 63366798(497250959): Gating check added in newer builds (26X00.9550, no longer works on .9711). If enabled, it forces Explorer to load AIFabric even when 58375086 is disabled. Both IDs must be disabled.
-    // - 58375066(890768015/UseCentralWindowsAppRuntimeVersion) - 26X00.9711
-    await Future.wait([
-      WinRegistryService.disableFeature(58375086),
-      WinRegistryService.disableFeature(63366798),
-      WinRegistryService.disableFeature(58375066),
-    ]);
+      final Result<IList<AppxRemovalResult>> copilotResult = await _appx.removePackages(
+        prefixes: const {'Microsoft.Copilot'},
+        allUsers: true,
+      );
+      copilotResult.when(
+        success: (_) {},
+        failure: (e) => logger.w('winsxs: Failed to remove Copilot package', error: e),
+      );
 
-    return super.install(force: force);
+      // AIFabric is restored by re-registering its on-disk manifest, so roaming
+      // user data must survive for that restore to re-attach to it.
+      final Result<IList<AppxRemovalResult>> fabricResult = await _appx.removePackages(
+        prefixes: const {'Microsoft.AIFabric.CBS.1.6'},
+        preserveRoaming: true,
+        scheduleOnStartup: false,
+      );
+      fabricResult.when(
+        success: (_) {},
+        failure: (e) => logger.w('winsxs: Failed to remove AIFabric package', error: e),
+      );
+
+      (await super.install(force: force)).when(success: (_) {}, failure: (e) => throw e);
+    });
   }
 
   @override
@@ -255,18 +287,24 @@ final class const AiRemovalService({
       (await super.uninstall()).when(success: (_) {}, failure: (e) => throw e);
 
       await runPSCommand('Enable-WindowsOptionalFeature -Online -FeatureName Recall -NoRestart');
-      await _installStorePackages(store: _store, ids: {_copilotStoreId}.lock);
+      try {
+        await _installStorePackages(store: _store, ids: {_copilotStoreId}.lock);
+      } catch (e, st) {
+        logger.w('winsxs: Failed to reinstall Copilot store packages', error: e, stackTrace: st);
+      }
+
       if (File(_fabricAIPath).existsSync()) {
         logger.i('winsxs: Re-registering Microsoft.AIFabric.CBS.1.6 package...');
-        await runPSCommand(
-          'Add-AppxPackage -Register -DisableDevelopmentMode -Path "$_fabricAIPath"',
-        );
-        await Future.wait([
-          WinRegistryService.deleteFeatureOverride(58375086),
-          WinRegistryService.deleteFeatureOverride(63366798),
-          WinRegistryService.deleteFeatureOverride(58375066),
-        ]);
+        try {
+          await runPSCommand(
+            'Add-AppxPackage -Register -DisableDevelopmentMode -Path "$_fabricAIPath"',
+          );
+        } catch (e, st) {
+          logger.w('winsxs: Failed to re-register AIFabric package', error: e, stackTrace: st);
+        }
       }
+
+      await WinRegistryService.resetFeatures({58375086, 63366798, 58375066, 61199980, 40012896});
     });
   }
 }

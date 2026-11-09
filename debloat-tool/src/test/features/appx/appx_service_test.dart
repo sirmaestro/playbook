@@ -388,11 +388,7 @@ void main() {
       );
       final repository = FakeAppxRepository(
         rows: const [copilotRow, calculatorRow],
-        outcomes: const [
-          transientRefusal,
-          acceptedOutcome,
-          acceptedOutcome,
-        ],
+        outcomes: const [transientRefusal, acceptedOutcome, acceptedOutcome],
       );
       final service = AppxService(repository: repository);
 
@@ -413,10 +409,7 @@ void main() {
         extendedErrorCode: _hrDestageFailed,
         errorText: 'DeStage operation failed',
       );
-      final repository = FakeAppxRepository(
-        rows: const [copilotRow],
-        outcome: permanentRefusal,
-      );
+      final repository = FakeAppxRepository(rows: const [copilotRow], outcome: permanentRefusal);
       final service = AppxService(repository: repository);
 
       final Result<IList<AppxRemovalResult>> result = await service.removePackages(
@@ -436,10 +429,7 @@ void main() {
         extendedErrorCode: _hrDestageFailed,
         errorText: 'DeStage operation failed',
       );
-      final repository = FakeAppxRepository(
-        rows: const [copilotRow],
-        outcome: permanentRefusal,
-      );
+      final repository = FakeAppxRepository(rows: const [copilotRow], outcome: permanentRefusal);
       final service = AppxService(repository: repository);
 
       final Result<IList<AppxRemovalResult>> result = await service.removePackages(
@@ -449,6 +439,45 @@ void main() {
       );
 
       expect(result, isA<Failure<IList<AppxRemovalResult>>>());
+      expect(repository.scheduledRunOnce, isEmpty);
+    });
+
+    test('does not schedule on startup when preserveRoaming is true', () async {
+      const permanentRefusal = RemovalOutcomeModel(
+        identifier: 'locked',
+        extendedErrorCode: _hrDestageFailed,
+        errorText: 'DeStage operation failed',
+      );
+      final repository = FakeAppxRepository(rows: const [copilotRow], outcome: permanentRefusal);
+      final service = AppxService(repository: repository);
+
+      final Result<IList<AppxRemovalResult>> result = await service.removePackages(
+        prefixes: const {'Microsoft.Copilot'},
+        preserveRoaming: true,
+      );
+
+      expect(result, isA<Failure<IList<AppxRemovalResult>>>());
+      expect(repository.scheduledRunOnce, isEmpty);
+    });
+
+    test('treats 0x80073cf1 (package not found for user) as success', () async {
+      const packageNotFoundOutcome = RemovalOutcomeModel(
+        identifier: 'copilot',
+        extendedErrorCode: 0x80073cf1,
+        errorText: 'The current user does not have that package installed',
+      );
+      final repository = FakeAppxRepository(
+        rows: const [copilotRow],
+        outcome: packageNotFoundOutcome,
+      );
+      final service = AppxService(repository: repository);
+
+      final Result<IList<AppxRemovalResult>> result = await service.removePackages(
+        prefixes: const {'Microsoft.Copilot'},
+        preserveRoaming: true,
+      );
+
+      expect(result, isA<Success<IList<AppxRemovalResult>>>());
       expect(repository.scheduledRunOnce, isEmpty);
     });
   });

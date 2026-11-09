@@ -162,7 +162,7 @@ final class const AppxService({
     }
 
     if (failed.isNotEmpty) {
-      if (scheduleOnStartup) {
+      if (scheduleOnStartup && !preserveRoaming) {
         // If removal still fails, queue it for next boot.
         // The flag prevents endless reboot loops if it keeps failing.
         await repository.scheduleRunOnce(
@@ -192,11 +192,17 @@ final class const AppxService({
 
     await _removeInboxApp(fullName);
 
+    final PackageRemovalScopeModel targetScope = allUsers
+        ? .allUsers
+        : switch (preserveRoaming) {
+            true => .currentUserPreserveRoamable,
+            false => .currentUser,
+          };
+
     if (preserveRoaming) {
       final RemovalOutcomeModel outcome = await repository.removePackage(
         fullName: fullName,
-        allUsers: allUsers,
-        preserveRoamable: true,
+        scope: targetScope,
       );
       return _accepted(outcome);
     }
@@ -204,20 +210,23 @@ final class const AppxService({
     // Attempt 1: Standard removal.
     RemovalOutcomeModel outcome = await repository.removePackage(
       fullName: fullName,
-      allUsers: allUsers,
+      scope: targetScope,
     );
     if (_isSuccess(outcome)) return outcome.toDomain();
 
     // Attempt 2: Mark EndOfLife keys for system packages and retry.
     final bool eolMarked = await _markEndOfLife(fullName);
     if (eolMarked) {
-      outcome = await repository.removePackage(fullName: fullName, allUsers: allUsers);
+      outcome = await repository.removePackage(fullName: fullName, scope: targetScope);
       if (_isSuccess(outcome)) return outcome.toDomain();
     }
 
     // Attempt 3: Guaranteed unregistration fallback (preserveRoamable requires per-user).
     if (!allUsers) {
-      outcome = await repository.removePackage(fullName: fullName, preserveRoamable: true);
+      outcome = await repository.removePackage(
+        fullName: fullName,
+        scope: .currentUserPreserveRoamable,
+      );
       if (_isSuccess(outcome)) return outcome.toDomain();
     }
 
@@ -281,12 +290,19 @@ final class const AppxService({
     return true;
   }
 
+  static const int _hrPackageNotFound = 0x80073cf1;
+
   static bool _isSuccess(RemovalOutcomeModel outcome) =>
-      outcome.extendedErrorCode == 0 && outcome.errorText.isEmpty;
+      (outcome.extendedErrorCode == 0 && outcome.errorText.isEmpty) ||
+      outcome.extendedErrorCode == _hrPackageNotFound;
 
   /// Throws [AppxRemovalRefusedException] if [outcome] reports an error.
   static AppxRemovalResult _accepted(RemovalOutcomeModel outcome) {
     final AppxRemovalResult result = outcome.toDomain();
+    // 0x80073cf1: Package not registered for the target user; considered already removed.
+    if (result.extendedErrorCode == _hrPackageNotFound) {
+      return result;
+    }
     if (result.extendedErrorCode != 0 || result.errorText.isNotEmpty) {
       throw AppxRemovalRefusedException(result);
     }

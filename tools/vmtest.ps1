@@ -72,6 +72,8 @@ param(
     [int]$AppsLayerMaxAgeHours = 24,
     [int]$KeepLayers = 1,
     [switch]$CacheDownloads,
+    # Skip the component-store canary (DISM /ScanHealth, a few minutes) at the end of the run.
+    [switch]$NoStoreHealth,
     # A guest that is working or rebooting always touches its disk: no virtual-disk I/O this long = hung.
     [int]$StallSec = 360,
     # Out-of-process watchdog (tools\vmtest\watchdog.ps1): stops the run when harness.log makes no progress this long
@@ -90,6 +92,7 @@ $amelog = Join-Path $PSScriptRoot 'vmtest\amelog.py'
 $endStateCheck = Join-Path $PSScriptRoot 'vmtest\endstate-check.ps1'
 $endStateKnown = Join-Path $PSScriptRoot 'vmtest\endstate-known.json'
 $servicingDiag = Join-Path $PSScriptRoot 'vmtest\servicing-diag.ps1'
+$storeHealthScript = Join-Path $PSScriptRoot 'vmtest\store-health.ps1'
 $guestIn = 'C:\vmtest\in'
 $guestPs = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 $layerDir = Join-Path $repoRoot 'out\vmtest\layers'
@@ -126,6 +129,7 @@ $script:report = [ordered]@{
     apps = [ordered]@{ status = 'not-run' }
     endState = $null
     liveState = [ordered]@{ status = 'not-run' }
+    storeHealth = [ordered]@{ status = 'not-run' }
     provenance = $null
     phases = @()
     layers = [ordered]@{ enabled = [bool]$Layers; startFrom = 'base'; created = @() }
@@ -219,7 +223,7 @@ function Get-VmtProvenance {
     $p = [ordered]@{ invocation = $script:invocation }
     $p.scripts = [ordered]@{}
     foreach ($f in $PSCommandPath, $agentLocal, (Join-Path $PSScriptRoot 'vmtest\watchdog.ps1'), $amelog, $endStateCheck, $endStateKnown,
-            $servicingDiag, (Join-Path $PSScriptRoot 'build-package.ps1')) {
+            $servicingDiag, $storeHealthScript, (Join-Path $PSScriptRoot 'build-package.ps1')) {
         $p.scripts[(Split-Path -Leaf $f)] = $(if (Test-Path -LiteralPath $f) { (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash } else { $null })
     }
     $git = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -305,6 +309,32 @@ function Invoke-VmtLiveStateCheck {
         $script:report.liveState.error = $_.Exception.Message
         $script:report.harnessErrors += "live end-state check ($Stage) could not run: $($_.Exception.Message)"
         Write-VmtLog "Live state ($Stage) check failed to run: $($_.Exception.Message)"
+    }
+}
+
+# ------------------------------------------------------------------------- component-store canary
+function Invoke-VmtStoreHealth {
+    # DISM /ScanHealth in the guest (store-health.ps1). The playbook's CBS removal cabs plus a later component cleanup
+    # can leave the store "repairable" with no way back (docs/atlas-comparison.md 8.1); a normal apply must leave it
+    # clean. "repairable" and "not-repairable" fail the run; an unreadable result is a harness error, not a verdict.
+    try {
+        Copy-VmtToGuest -LocalPath $storeHealthScript -GuestName 'store-health.ps1'
+        Set-VmtPatience (25 * 60)   # ScanHealth writes no harness log lines for a few minutes
+        $r = Invoke-VmtGuestRun -Exe $guestPs -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$guestIn\store-health.ps1") -TimeoutSec 1200 -AllowFailure
+        $m = [regex]::Match($r.Stdout, '(?s)VMTEST_STOREHEALTH_BEGIN\s*(.*?)\s*VMTEST_STOREHEALTH_END')
+        if (-not $m.Success) { throw "no result from store-health.ps1: $(($r.Stderr + $r.Stdout).Trim() -replace '\s+', ' ')" }
+        $d = $m.Groups[1].Value | ConvertFrom-Json
+        if ($d.status -eq 'unknown') { throw "DISM /ScanHealth gave no verdict (exit $($d.exitCode)): $($d.output -join ' | ')" }
+        $script:report.storeHealth = [ordered]@{
+            status = $d.status; exitCode = $d.exitCode; durationSec = $d.durationSec; build = $d.build; output = @($d.output)
+        }
+        Write-VmtLog ("Component store (DISM /ScanHealth, {0} s, build {1}): {2}" -f $d.durationSec, $d.build, $d.status)
+        if ($d.status -ne 'clean') { Write-VmtLog "  STORE NOT CLEAN: $($d.output -join ' | ')" }
+    }
+    catch {
+        $script:report.storeHealth = [ordered]@{ status = 'error'; error = $_.Exception.Message }
+        $script:report.harnessErrors += "component-store check could not run: $($_.Exception.Message)"
+        Write-VmtLog "Component-store check failed to run: $($_.Exception.Message)"
     }
 }
 
@@ -1368,6 +1398,8 @@ function Get-VmtExitCode {
     if ($script:report.endState -and $script:report.endState.status -eq 'failed') { $failed = $true }
     # What the playbook should have left behind must be on the machine (differences in endstate-known.json aside).
     if ($script:report.liveState.status -eq 'failed') { $failed = $true }
+    # The component store must still be clean after the apply (the canary, Invoke-VmtStoreHealth).
+    if (@('repairable', 'not-repairable') -contains $script:report.storeHealth.status) { $failed = $true }
     if ($script:report.tweaks -and $script:report.tweaks.counts.misaligned -gt 0) {
         # Log/plan pairing drifted, so per-action verdicts can't be trusted.
         if ($script:report.harnessErrors -notcontains 'log pairing misaligned') { $script:report.harnessErrors += 'log pairing misaligned' }
@@ -1591,6 +1623,7 @@ try {
     if ((Get-VmtVmState) -eq 'running') {
         Set-VmtPhase 'live-state'
         Invoke-VmtLiveStateCheck -Stage 'final'
+        if (-not $NoStoreHealth -and -not $AppsOnly) { Set-VmtPhase 'store-health'; Invoke-VmtStoreHealth }
         Set-VmtPhase 'collect'
         $logsDir = Get-VmtLogs
         if ($startFrom -eq 'base') { $script:report.tweaks = Invoke-VmtSummarize -ConfigDir $configCopy -OptionsFile $optFile -LogsDir $logsDir }

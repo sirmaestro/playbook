@@ -1,0 +1,43 @@
+name: FRB debug (temporary)
+
+# Temporary: reruns the failing "Generate Rust bridge code" step of main.yml and reports its output as
+# annotations (readable without a login). Delete this file and its branch when the build is fixed.
+on:
+  push:
+    branches: [ci-frb-debug]
+
+jobs:
+  frb:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: debloat-tool/src
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Versions
+        shell: pwsh
+        run: |
+          $v = (flutter --version 2>&1 | Out-String) + (dart --version 2>&1 | Out-String) + (rustc --version 2>&1 | Out-String) + (cargo --version 2>&1 | Out-String)
+          Write-Host ("::notice title=versions::" + ($v -replace '%','%25' -replace "`r",'%0D' -replace "`n",'%0A'))
+
+      - name: Install flutter_rust_bridge_codegen
+        shell: pwsh
+        run: |
+          $targetVer = (Get-Content packages/revitool_native/pubspec.yaml | Select-String '^\s*flutter_rust_bridge:\s*[\^~]?[''"]?([\w\.\-\+]+)').Matches.Groups[1].Value
+          cargo install flutter_rust_bridge_codegen --version $targetVer --locked
+
+      - name: Generate Rust bridge code (captured)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $out = (dart run melos run frb 2>&1 | Out-String)
+          $code = $LASTEXITCODE
+          $tail = if ($out.Length -gt 12000) { $out.Substring($out.Length - 12000) } else { $out }
+          $msg = "exit=$code`n" + $tail
+          Write-Host ("::error title=frb-log::" + ($msg -replace '%','%25' -replace "`r",'%0D' -replace "`n",'%0A'))
+          exit $code

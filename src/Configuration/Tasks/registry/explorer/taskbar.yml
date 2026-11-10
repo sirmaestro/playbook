@@ -13,15 +13,17 @@ actions:
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'ShowTaskViewButton', type: REG_DWORD, data: '0'}
 
   # === Disable the new Weather and News widgets
+  # ------> The two HKLM policy values below can be denied by UCPD on 26300.9711 during the apply; POSTCLEAN.ps1 -Target
+  # ------> FeedsPolicy (final.yml) writes them again after the first reboot, hence errorAction: Ignore.
   # ------> Other parts of it can be found in ifeo
-  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds', value: 'EnableFeeds', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds', value: 'EnableFeeds', type: REG_DWORD, data: '0', errorAction: Ignore}
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Feeds', value: 'ShellFeedsTaskbarViewMode', type: REG_DWORD, data: '2', errorAction: Ignore}
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Feeds', value: 'ShellFeedsTaskbarViewMode', type: REG_DWORD, data: '2', errorAction: Ignore}
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'TaskbarDa', type: REG_DWORD, data: '0', errorAction: Ignore}
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'TaskbarDa', type: REG_DWORD, data: '0', errorAction: Ignore}
   
   # ------> since 22621.1343 builds, Windows 11 tries to reinstall WebExperience even if it is removed and stored in deprovisioned apps list
-  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Dsh', value: 'AllowNewsAndInterests', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Dsh', value: 'AllowNewsAndInterests', type: REG_DWORD, data: '0', errorAction: Ignore}
 
   # === Remove the People Bar from the taskbar - Enabled
   - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\Explorer', value: 'HidePeopleBar', type: REG_DWORD, data: '1'}

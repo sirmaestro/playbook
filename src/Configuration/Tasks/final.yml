@@ -85,6 +85,58 @@ actions:
   - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize', value: 'SystemUsesLightTheme', type: REG_DWORD, data: '1', option: "!configure-darkmode", weight: 50}
 
 
+  # === Apps Windows installs AFTER the early removal steps ran (Teams update staged by WU, Copilot Win32 from Edge
+  # === Update, StartExperiencesApp from C:\Windows\InboxApps). Remove again now, and repeat after reboot via a
+  # === self-deleting scheduled task (POSTCLEAN.ps1 -Register). See docs/references-learnings.md.
+  # ------> Without its InboxApps bundle Windows has nothing to re-register at logon (the Deprovisioned key is not enough).
+  - !file: {path: '%WinDir%\InboxApps\Microsoft.StartExperiencesApp_8wekyb3d8bbwe.msixbundle'}
+  - !file: {path: '%WinDir%\InboxApps\Microsoft.StartExperiencesApp_8wekyb3d8bbwe.xml'}
+  # ------> Widgets platform runtime: the only other bundle in InboxApps on 26100 (appx.yml already removes the package).
+  - !file: {path: '%WinDir%\InboxApps\Microsoft.WidgetsPlatformRuntime_8wekyb3d8bbwe.msixbundle'}
+  - !file: {path: '%WinDir%\InboxApps\Microsoft.WidgetsPlatformRuntime_8wekyb3d8bbwe.xml'}
+  - !writeStatus: {status: "Removing apps Windows reinstalls"}
+  # ------> Remove-AppxPackage -AllUsers is refused for the staged MSTeams ("Access is denied", DeStage 0x80070005; seen
+  # ------> under TI in hv18 and as the elevated user in hv19). POSTCLEAN.ps1 then falls back to wdtool, which removes it.
+  # ------> Runs as the elevated user, same pattern as EDGE.ps1 in app-win32.yml.
+  - !powerShell:
+    command: '.\POSTCLEAN.ps1 -Target StartExperiences -Register'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    weight: 40
+  - !powerShell:
+    command: '.\POSTCLEAN.ps1 -Target Teams -Register'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    option: "remove-teams"
+    weight: 40
+  - !powerShell:
+    command: '.\POSTCLEAN.ps1 -Target Copilot -Register'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    option: "remove-winsxs-ai"
+    weight: 60
+  # ------> UCPD denies the HKLM Windows Feeds / Dsh policy writes during the apply on 26300.9711 (it stops only after a
+  # ------> restart); the task writes them again after the first reboot. taskbar.yml marks the early writes errorAction: Ignore.
+  - !powerShell:
+    command: '.\POSTCLEAN.ps1 -Target FeedsPolicy -Register'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    weight: 5
+
+  # === New accounts: copy the HKCU tweaks above into the Default profile hive (HKU\.DEFAULT is the SYSTEM profile, not the
+  # === template). Reads the YAML in this playbook and copies only the values this user's HKCU actually holds.
+  - !writeStatus: {status: "Applying settings to the default user profile"}
+  - !powerShell:
+    command: '.\DEFAULTUSER.ps1'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    weight: 10
+
   # Necessary to refresh start menu entries etc.
   - !appx: {operation: clearCache, name: '*Client.CBS*'}
   - !appx: {operation: clearCache, name: '*StartMenuExperienceHost*', option: "remove-pinned-items-startmenu"}
@@ -110,4 +162,19 @@ actions:
         Stop-Process -Name explorer -Force
       }
       Start-Process explorer
+    runas: currentUserElevated
+
+  # ------> wdtool mounts the Default profile hive as HKU\DefaultUserHive for its HKCU tweaks and never unloads it. While it is
+  # ------> mounted Windows cannot copy C:\Users\Default\NTUSER.DAT, so an account created before the next restart gets a
+  # ------> temporary profile. Release it last, after the final wdtool call. Never fails the apply.
+  - !powerShell:
+    command: |
+      for ($i = 0; $i -lt 6; $i++) {
+        if (-not (Test-Path 'Registry::HKEY_USERS\DefaultUserHive')) { break }
+        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+        & reg.exe unload 'HKU\DefaultUserHive' 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { break }
+        Start-Sleep -Seconds 2
+      }
+      exit 0
     runas: currentUserElevated

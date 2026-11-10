@@ -36,6 +36,12 @@ actions:
       $lnk.Description = 'Install app groups with winget (run once after the playbook, while online)';
       $lnk.Save()
 
+  # === Copilot app is an Edge Update product that Microsoft's experimentation service force-installs minutes after
+  # === first network (reason=ecs in MicrosoftEdgeUpdate.log), before the registry tasks run. Set the policy first.
+  # ------> Install=0 / Update=0 for the Copilot app's Edge Update id. Gated like the rest of the Copilot removal.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'Install{C50565E9-CCCF-44B4-BA15-5AC5C6569197}', type: REG_DWORD, data: '0', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'Update{C50565E9-CCCF-44B4-BA15-5AC5C6569197}', type: REG_DWORD, data: '0', option: 'remove-winsxs-ai'}
+
   - !cmd:
     exeDir: true
     command: 'copy /y "hosts" "%WINDIR%\System32\drivers\etc\hosts"'
@@ -58,14 +64,16 @@ actions:
   # ------> WinDebloat Tool (debloat-tool/) is built by CI from the same commit and bundled here;
   # ------> nothing is downloaded, so the tool always matches this playbook version.
   - !writeStatus: {status: 'Installing WinDebloat Tool'}
-  - !powerShell:
+  # ------> Every later step needs wdtool, so a failed install must stop the apply instead of 'completing with errors' after
+  # ------> 1000+ steps. On the AME CLI used here (0.8.4) only handleExitCodes halts: errorAction: Halt on a !powerShell step
+  # ------> that throws is recorded as a failure but the playbook carries on (tested with a failing installer, hv27 runs A to C).
+  - !run:
     exeDir: true
+    exe: "WinDebloatTool-Setup.exe"
+    args: '/VERYSILENT /TASKS="desktopicon"'
     wait: true
-    errorAction: Halt
     weight: 50
-    command: >-
-      if (-not (Test-Path -LiteralPath '.\WinDebloatTool-Setup.exe')) { throw 'WinDebloatTool-Setup.exe is missing from Executables.' };
-      Start-Process -FilePath '.\WinDebloatTool-Setup.exe' -ArgumentList '/VERYSILENT /TASKS="desktopicon"' -Wait -WindowStyle Hidden
+    handleExitCodes: { "!0": halt }
 
   - !writeStatus: {status: "Optimizing PowerShell"}
   - !run:

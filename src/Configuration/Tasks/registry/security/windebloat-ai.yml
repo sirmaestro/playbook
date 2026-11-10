@@ -39,3 +39,17 @@ actions:
   - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
   - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+
+  # === More AI policies, added from the AtlasOS tweak set (2026-11, docs/atlas-comparison.md idea 8). Machine-wide, additive.
+  # ------> Settings agent (the AI search/assistant in Settings)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'DisableSettingsAgent', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  # ------> Uninstall the Copilot app on 25H2+ (Windows honours this on Enterprise/Education only; harmless elsewhere)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'RemoveMicrosoftCopilotApp', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  # ------> Notepad: Copilot/Rewrite/Summarize
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\WindowsNotepad', value: 'DisableAIFeatures', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  # ------> Paint: Cocreator, Image Creator, Generative Fill
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint', value: 'DisableCocreator', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint', value: 'DisableImageCreator', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Paint', value: 'DisableGenerativeFill', type: REG_DWORD, data: '1', option: 'remove-winsxs-ai'}
+  # ------> Deny apps access to generative AI (Settings > Privacy). Atlas ignores errors here; so do we.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\generativeAI', value: 'Value', type: REG_SZ, data: 'Deny', option: 'remove-winsxs-ai', errorAction: Ignore}

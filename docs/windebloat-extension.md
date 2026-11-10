@@ -15,7 +15,7 @@ run `debloat.ps1`. Instead:
   playbook's custom YAML tags. The result ships in the `.apbx` and runs under AME's TrustedInstaller
   context — no extra runtime.
 
-Why: AME already gives us TrustedInstaller/SYSTEM, the `HKU\.DEFAULT` mirroring convention, option
+Why: AME already gives us TrustedInstaller/SYSTEM, option
 gating, OOBE/ISO awareness, and `revitool` for the signed-CBS component removals a plain script can't
 do (see [references-learnings.md](references-learnings.md)). Re-expressing in playbook format keeps one
 delivery mechanism and one review surface.
@@ -26,7 +26,7 @@ WinDebloat catalog entries carry a `Type`. Port each to the matching AME constru
 
 | WinDebloat `Type` | Count* | Playbook equivalent | Notes |
 |---|---|---|---|
-| `Registry` | 720 | `!registryValue` / `!registryKey` | One-line flow mapping + `# === Name - State` comment. **Mirror HKCU → `HKU\.DEFAULT`** (WinDebloat "(+DEFAULT)"). `data:` is always a quoted string. `operation: delete` for removals. `TI = $true` → the task's `privilege: TrustedInstaller` (default for `Tasks/**`) covers it. |
+| `Registry` | 720 | `!registryValue` / `!registryKey` | One-line flow mapping + `# === Name - State` comment. HKCU tweaks reach new accounts through `Executables/DEFAULTUSER.ps1` (final.yml), which copies the values the user's HKCU holds into the Default profile hive; `HKU\.DEFAULT` is the SYSTEM profile, so a WinDebloat "(+DEFAULT)" mirror there is optional and does not affect new users. `data:` is always a quoted string. `operation: delete` for removals. `TI = $true` → the task's `privilege: TrustedInstaller` (default for `Tasks/**`) covers it. |
 | `Service` | 43 | `!service` | Start type maps directly (2=auto,3=manual,4=disabled). |
 | `Appx` | 119 | `!appx` or `revitool appx --all-users --remove <csv>` | Playbook removes provisioned+installed for all users via revitool; prefer that for parity. Gate behind the existing `remove-appx-*` options where one exists. |
 | `ScheduledTask` | 26 | `!powerShell: Get-ScheduledTask … \| Disable-ScheduledTask` | `!scheduledTask` tag is registered but unused in the playbook — follow the existing `Get-ScheduledTask` pattern (see `final.yml`). |

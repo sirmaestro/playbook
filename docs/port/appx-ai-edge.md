@@ -4,7 +4,7 @@ Port of WinDebloat `catalog/appx.psd1`, `catalog/ai.psd1`, `catalog/edge.psd1` i
 playbook fork. Deconfliction done against `packages/appx.yml`, `packages/win-sxs.yml`,
 `packages/app-win32.yml`, and the full `Tasks/registry/**` tree.
 
-Output files created (not yet wired into `main.yml` / `registry.yml` / `appx` aggregator — that
+Output files created (wired 2026-10-19, see `docs/windebloat-port-status.md`; at port time they were not yet in `main.yml` / `registry.yml` / `appx` aggregator — that
 wiring is deliberately left to a follow-up pass, per the "do not edit existing task files" rule):
 
 - `src/Configuration/Tasks/packages/windebloat-appx.yml` — new Appx removals

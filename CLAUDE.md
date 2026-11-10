@@ -19,13 +19,13 @@ Distilled gotchas (CBS/signing boundary, Defender/PPL, revitool, VM testing, kno
 ## Testing / Definition of Done section
 ## Verification honesty
 - Never call a change 'done' if it has only passed a dry run or a local self-test. State clearly what was verified (dry run, Windows only, VM run) and what was not (real install, elevated paths, macOS/Linux, re-applied package).
-- For playbook and debloat changes, the definition of done is: package rebuilt, applied on the VirtualBox VM, and the error count compared to the previous run.
+- For playbook and debloat changes, the definition of done is: package rebuilt, applied on the Hyper-V VM (`windowstest-hv`), and the error count compared to the previous run.
 
 ## Testing / Definition of Done section
-## VM testing (VirtualBox)
-- Drive the guest with `VBoxManage guestcontrol run`. Do not use keyboard injection. It once sent a command into Edge.
-- The host server is not reachable from the guest over NAT. Use `guestcontrol copyto` to move files, and always confirm the copy replaced the old file.
-- The snapshot must already have UAC disabled and any helper scheduled tasks (e.g. dbgjob) present. Check both before starting.
+## VM testing (Hyper-V)
+- Drive the guest with PowerShell Direct (`Invoke-Command -VMName`), which `tools/vmtest.ps1` does. Do not use keyboard injection. It once sent a command into Edge.
+- Move files with `Copy-Item -ToSession` / `-FromSession` over PowerShell Direct, and always confirm the copy replaced the old file (compare SHA256 in the guest).
+- The checkpoint must already have UAC prompts off and Defender Tamper Protection off (a manual step), and any helper scheduled tasks (e.g. dbgjob) present. Check both before starting.
 - In PowerShell helpers, avoid aliases that collide with built-ins and do not rely on `$Matches` across scopes.
 - The playbook must have its own identity, not ReviOS. Otherwise AME flags it as malicious.
 

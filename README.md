@@ -52,6 +52,9 @@ Ready to elevate your Windows experience? Follow these simple steps:
 > [!CAUTION]
 > It's recommended to start with a fresh, stock Windows installation before applying the playbook to avoid potential conflicts with existing software and user data.
 
+> [!WARNING]
+> Do not run a component-store cleanup after installing: `DISM /StartComponentCleanup` (with or without `/ResetBase`) or Disk Cleanup's "Windows Update Cleanup", including cleaner tools that do the same. Once the playbook's component removals and a cumulative update are both installed, a cleanup leaves `DISM /ScanHealth` reporting "The component store is repairable", and `/RestoreHealth` and `sfc` do not fix it. Windows keeps working and no failure has been observed, but repair tools and feature updates that need the original component files may fail.
+
 1. Download [AME Wizard](https://amelabs.net) and our playbook from the latest [releases](https://github.com/meetrevision/playbook/releases).
 2. Launch the AME Wizard and drag-and-drop the playbook into the interface.
 3. Follow the on-screen instructions to complete the installation.

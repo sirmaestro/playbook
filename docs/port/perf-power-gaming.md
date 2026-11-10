@@ -4,8 +4,8 @@ Scope: WinDebloat catalog `catalog/perf.psd1`, `catalog/pwr.psd1`, `catalog/game
 (+ `engine/scripts/pwr-UltraPlan.ps1`, `engine/scripts/pwr-PlanC6.ps1`).
 
 Ported registry output: `src/Configuration/Tasks/registry/system/windebloat-performance.yml`
-(MMCSS performance block + a `# === Gaming` section). The new task file is **not yet wired** into
-`registry.yml` — wiring is a maintainer decision (we do not edit existing files).
+(MMCSS performance block + a `# === Gaming` section). The new task file is **wired** (2026-10-19) into
+`registry.yml`; see `docs/windebloat-port-status.md` "Wiring status".
 
 Counts: **ported 1 tweak (partial for 2 more) = 4 WinDebloat tweaks contributing registry writes**,
 skipped-duplicate 19, conflicts 2, maps-to-existing 6.

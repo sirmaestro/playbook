@@ -15,5 +15,10 @@ src/Executables/install-apps-*.log
 # VM harness: build output, run logs, downloaded binaries (AME CLI, tool installer)
 out/
 tools/cache/
+__pycache__/
 
 /reference
+
+backlog.md
+# Still testing, untracked for now
+tools/migrate

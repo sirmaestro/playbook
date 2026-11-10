@@ -8,7 +8,7 @@ Output files produced:
 - `src/Configuration/Tasks/registry/misc/windebloat-misc.yml` — long paths, regional formats, Narrator hotkey.
 - (no `windebloat-updates.yml` — every `upd.psd1` tweak was a duplicate, maps to revitool, or a conflict.)
 
-> **Wiring note:** per task rules the existing `registry.yml` / `main.yml` were **not** edited, so the two
+> **Wiring note (resolved 2026-10-19: both files are now included, see `docs/windebloat-port-status.md`).** At port time the existing `registry.yml` / `main.yml` were **not** edited, so the two
 > new task files are not yet included. A maintainer still needs to add `!task` includes
 > (`Tasks\windebloat-features.yml` near the package/feature phase, `Tasks\registry\misc\windebloat-misc.yml`
 > into `registry.yml`'s misc block) for them to run.

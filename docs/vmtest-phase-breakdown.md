@@ -32,6 +32,7 @@ Names are the `phases` entries in `summary.json` and the "Timeline" table at the
 | `apps-seed` | Copy the winget and download caches into the guest (880 MB) | 34 | 36 | 36 | Disk copy at about 25 MB/s through the guest |
 | `apps-run` | `INSTALL-APPS.ps1` for `base,media-office` | 158 | 201 | 158 | Nine installers and the default-apps step; mostly winget and the installers themselves |
 | `live-state` | Live end-state check against the playbook | 2 | 2 | 2 | |
+| `store-health` | Component-store canary, `DISM /Online /Cleanup-Image /ScanHealth` (`-NoStoreHealth` skips it) | 152 | - | - | hv29: 150 s on the first run after the apply, 54 s when repeated; read-only. Not part of the columns' totals above |
 | `collect`, `l2-shutdown`, `l2-snapshot` | Pull logs, save L2 | 15 | 15 | 17 | |
 
 An app-only iteration (hv17) is 277 s: the first-boot replay 51 s (18%), the cache seed 36 s (13%), the installs 158 s

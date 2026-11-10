@@ -448,14 +448,52 @@ Where each ranked idea stands after 8.8 and 8.9. "Done" means implemented and ve
 
 | Status | Items |
 |---|---|
-| Done | 3, 4, 5 (CI checks; `verify.yml` green on GitHub, the `main.yml` package check not yet run), 6 (Default-hive pass), 8 (AI policies), 14 (halt on tool install failure) |
-| Open, no decision needed | 1 (`/ScanHealth` canary in the harness end state), 7 (mute toasts), 9 (update-first gate for users), 15 (extra appx), 16 (Appendix A tweaks), 17 (download hardening), T1 to T5, all of Tier 3 |
-| Open, needs the maintainer (rule 2) | 2 (stop offering "Windows Update Cleanup" after the cabs), 11 (`AllowExperimentation`), `configure-explorer-taskbar-animations` (option missing from `playbook.conf`, 8.9), Tier 3 service and hibernate changes |
+| Done | 3, 4, 5 (CI checks; `verify.yml` green on GitHub, the `main.yml` package check not yet run), 6 (Default-hive pass), 8 (AI policies), 14 (halt on tool install failure), 1 (`/ScanHealth` canary, section 8.11) |
+| Open, no decision needed | 7 (mute toasts), 9 (update-first gate for users), 15 (extra appx), 16 (Appendix A tweaks), 17 (download hardening), T1 to T5, all of Tier 3 |
+| Open, needs the maintainer (rule 2) | Tier 3 service and hibernate changes |
+| Decided 2026-11-10 | 2: keep `CLEANER.ps1`, docs and canary only. 11: keep `AllowExperimentation`. `configure-explorer-taskbar-animations`: option defined (8.11) |
 | Open, blocked on testing | 10 (Start pins: needs a second interactive account), `NoAutoUpdate` on the CI-built tool and on Windows 10 (8.9) |
 | Dropped | 12 (appx re-read: nothing was left, 8.4), 13 (MDCoreSvc task: no event 7023, 8.4) |
 
-From the maintainer's own `backlog.md` (untracked): the weekly `winget upgrade --all --silent` task with a log is not
-built, and settings persistence across a yearly reinstall maps to T4 (`wdtool profile export|import`), also not built.
+From the maintainer's own `backlog.md` (untracked): the weekly `winget upgrade --all --silent` task with a log is built
+as an option (8.11); settings persistence across a yearly reinstall maps to T4 (`wdtool profile export|import`), not built.
+
+### 8.11 Backlog build-out (2026-11-10, evening)
+
+Decisions: define the taskbar-animations option, add the `/ScanHealth` canary (idea 1), build the weekly winget task from
+`backlog.md`. Setup as 8.9 (`atlas-exp-base-updated2` was not used: run **hv29** started from the regular base
+`clean-defender-off-UAC-off`, build 26300.9457), full uncached apply with both new options ticked, then checks in the guest.
+**hv29: 1076 applied, 0 failed, 83 skipped, 0 unconfirmed, engine `success`, 905 of 918 end-state entries match, 0 unexpected,
+`storeHealth` clean; result pass (exit 0).**
+
+| Change | Where | Verified |
+|---|---|---|
+| Option `configure-explorer-taskbar-animations` ("Disable taskbar animations", unchecked) | `playbook.conf` page "General configuration options, page 2"; `explorer.yml` unchanged apart from a comment | Ticked in hv29: `TaskbarAnimations=0` in HKCU and `HKU\.DEFAULT`. **Not tested:** unticked on the VM (it is the old behaviour, the delete branch that always ran), and that the animation is really off on screen. `verify_playbook.py` has no known-undefined option left |
+| Canary: `DISM /ScanHealth` after the final live check, `storeHealth` in `summary.json`, `repairable` or `not-repairable` fails the run, no verdict = harness error, `-NoStoreHealth` skips | `tools/vmtest/store-health.ps1`, `tools/vmtest.ps1`, `docs/vmtest.md` | hv29: clean in 150 s. Repeated by hand on the same guest: clean, 54 s, build now read from the registry (26300.9457). The status parser was tried on the three DISM sentences and an error text. **Not tested:** the `repairable` path end to end, which needs a store damaged the way 8.1 did (CU, cabs, cleanup) |
+| Weekly winget task: option `windebloat-weekly-app-updates` (unchecked), `WEEKLY-UPDATE.ps1 -Register` from `final.yml`; the script is always staged (`-Stage`) so the tool can switch the task later (8.12) | `playbook.conf`, `final.yml`, `Executables/WEEKLY-UPDATE.ps1` | hv29: task registered for `admin`, Highest, Interactive, Sundays 12:00, 3 restarts 30 min apart, network required, next run 15 Nov. Run by hand through the task in the guest: found the updates for App Installer and Windows Terminal, installed them, log written, task result 0. The first run showed winget's progress bars as garbage in the log (console code page); fixed by setting UTF-8 and re-run: clean log, exit code 0. `-Unregister` then `-Register` by hand: task gone, then back. **Not tested:** the Sunday trigger itself, the retry on no network, the log pruning (12 files), a run with the user logged off (the task is Interactive and only runs while the user is on; `StartWhenAvailable` catches a missed Sunday at the next logon) |
+
+Limits of the weekly task, as built: only the `winget` source (Store apps are left to the Store), packages with an unknown
+installed version are skipped (`--include-unknown` is not used on purpose), pinned packages are skipped by winget, and an
+upgrade that needs the app closed ("Restart the application") is logged but not forced. It does not use wdtool or the
+playbook's own cabs, so it cannot touch the component store.
+
+### 8.12 On/off switches in `wdtool` (2026-11-10, **not compiled or run**)
+
+Both settings from 8.11 can now be switched after the install, from the CLI and the GUI. **This is source only: there is no
+Dart or Flutter SDK on this machine, `.g.dart` files are generated in CI, and a local harness run uses the released tool, so
+none of it has been built, analysed or run.** The first CI build (`main.yml`, manual) is the first compile.
+
+| Setting | CLI (generated from `@CliToggle`) | GUI | How |
+|---|---|---|---|
+| Taskbar animations | `wdtool tweaks personalization taskbar-animations enable / disable / status` | Personalization, desktop section | Status: `HKCU\...\Explorer\Advanced\TaskbarAnimations` is not 0 (absent = on). Enable deletes the value, disable writes 0; both restart Explorer like the neighbouring toggles. Current user only: the Default profile that new accounts copy still comes from the playbook (`DEFAULTUSER.ps1`) |
+| Weekly app updates | `wdtool tweaks utilities weekly-app-updates enable / disable / status` | Utilities page, last card | Status: the Task Scheduler cache key `...\Schedule\TaskCache\Tree\WinDebloat Weekly App Update` exists. Enable runs the staged `%ProgramData%\WinDebloat\Weekly Update\WEEKLY-UPDATE.ps1 -Register` (fails with a message when the playbook never staged it); disable runs `schtasks /Delete` and leaves the logs |
+
+Playbook side, verified by run **hv30** (full uncached apply, 1077 applied, 0 failed, 905 of 918 live entries, 0 unexpected,
+store clean, pass; the guest has the staged script, the registered task and its Task Scheduler cache key, which is what the
+tool's status getter reads): `final.yml` always stages the script; the "unregister when the option is
+unticked" step was dropped, so re-applying the playbook never removes a task the user switched on. The playbook still writes
+the same registry value for taskbar animations itself (`explorer.yml`), so the two paths must keep matching (T3 in section 7).
+Unit tests: mock tests for both services, plus status checks in the integration groups that CI skips by default.
 
 ## Appendix A: Atlas tweaks we do not have (candidates)
 

@@ -96,6 +96,13 @@ at `first-boot` and `final`. A difference not in `tools/vmtest/endstate-known.js
 writing it down.** It does not cover `!run`/`!powerShell`, scheduled tasks, appx removal or SFTA associations, so a
 clean check is not proof the playbook worked.
 
+**Component-store canary.** After the final live check the harness runs `DISM /Online /Cleanup-Image /ScanHealth` in the
+guest (`tools/vmtest/store-health.ps1`, phase `store-health`, a few minutes, read-only) and records `storeHealth` in
+`summary.json`: `clean`, `repairable`, `not-repairable` (the last two fail the run, exit 1) or `error` (no verdict:
+harness error, exit 2). Why: the CBS removal cabs plus a later component cleanup can leave the store repairable with no
+way back (`docs/atlas-comparison.md` 8.1), and a normal apply must not. `-NoStoreHealth` skips it for quick iterations;
+it is also skipped with `-AppsOnly`.
+
 ## Base VM
 
 `windowstest-hv`: Gen 2, 4 vCPU, 16 GB static, vTPM, Secure Boot, nested virtualization, Default Switch, dynamic

@@ -92,6 +92,16 @@ abstract class PersonalizationService() {
   bool get statusExplorerGallery;
   Future<void> enableExplorerGallery();
   Future<void> disableExplorerGallery();
+
+  @CliToggle(
+    name: 'taskbar-animations',
+    status: 'statusTaskbarAnimations',
+    enable: 'enableTaskbarAnimations',
+    disable: 'disableTaskbarAnimations',
+  )
+  bool get statusTaskbarAnimations;
+  Future<void> enableTaskbarAnimations();
+  Future<void> disableTaskbarAnimations();
 }
 
 class const PersonalizationServiceImpl() implements PersonalizationService {
@@ -700,6 +710,41 @@ class const PersonalizationServiceImpl() implements PersonalizationService {
     await Process.run('taskkill.exe', ['/im', 'explorer.exe', '/f']);
     await Process.run('explorer.exe', [], runInShell: true);
   }
+
+  // Windows' default is on and the value is normally absent; the playbook option
+  // `configure-explorer-taskbar-animations` writes 0 for the signed-in user and the Default profile.
+  @override
+  bool get statusTaskbarAnimations {
+    return WinRegistryService.readInt(
+          CURRENT_USER,
+          r'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced',
+          'TaskbarAnimations',
+        ) !=
+        0;
+  }
+
+  @override
+  Future<void> enableTaskbarAnimations() async {
+    await WinRegistryService.deleteValue(
+      WinRegistryService.currentUser,
+      r'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced',
+      'TaskbarAnimations',
+    );
+    await Process.run('taskkill.exe', ['/im', 'explorer.exe', '/f']);
+    await Process.run('explorer.exe', [], runInShell: true);
+  }
+
+  @override
+  Future<void> disableTaskbarAnimations() async {
+    await WinRegistryService.writeRegistryValue(
+      WinRegistryService.currentUser,
+      r'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced',
+      'TaskbarAnimations',
+      0,
+    );
+    await Process.run('taskkill.exe', ['/im', 'explorer.exe', '/f']);
+    await Process.run('explorer.exe', [], runInShell: true);
+  }
 }
 
 @Riverpod(keepAlive: true)
@@ -746,4 +791,9 @@ bool explorerHomeStatus(Ref ref) {
 @riverpod
 bool explorerGalleryStatus(Ref ref) {
   return ref.watch(personalizationServiceProvider).statusExplorerGallery;
+}
+
+@riverpod
+bool taskbarAnimationsStatus(Ref ref) {
+  return ref.watch(personalizationServiceProvider).statusTaskbarAnimations;
 }

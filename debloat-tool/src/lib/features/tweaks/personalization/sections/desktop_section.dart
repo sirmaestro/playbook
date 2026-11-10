@@ -20,6 +20,7 @@ class const DesktopSection({super.key}) extends StatelessWidget {
         _NewContextMenuCard(),
         _ExplorerHomeCard(),
         _ExplorerGalleryCard(),
+        _TaskbarAnimationsCard(),
       ],
     );
   }
@@ -157,6 +158,27 @@ class const _ExplorerGalleryCard() extends ConsumerWidget {
               ? await ref.read(personalizationServiceProvider).enableExplorerGallery()
               : await ref.read(personalizationServiceProvider).disableExplorerGallery();
           ref.invalidate(explorerGalleryStatusProvider);
+        },
+      ),
+    );
+  }
+}
+
+class const _TaskbarAnimationsCard() extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool status = ref.watch(taskbarAnimationsStatusProvider);
+
+    return CardListTile(
+      title: t.tweaksPersonalizationTaskbarAnimations,
+      description: t.tweaksPersonalizationTaskbarAnimationsDescription,
+      trailing: CardToggleSwitch(
+        value: status,
+        onChanged: (value) async {
+          value
+              ? await ref.read(personalizationServiceProvider).enableTaskbarAnimations()
+              : await ref.read(personalizationServiceProvider).disableTaskbarAnimations();
+          ref.invalidate(taskbarAnimationsStatusProvider);
         },
       ),
     );

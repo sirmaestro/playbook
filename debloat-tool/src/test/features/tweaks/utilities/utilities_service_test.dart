@@ -117,6 +117,7 @@ void main() {
           expect(service.statusModernStandby, isA<bool>());
           expect(service.statusTMMonitoring, isA<bool>());
           expect(service.statusUsageReporting, isA<bool>());
+          expect(service.statusWeeklyAppUpdates, isA<bool>());
         });
 
         test('Async methods return Future', () async {
@@ -176,6 +177,27 @@ void main() {
 
         await mockService.disableHibernation();
         verify(() => mockService.disableHibernation()).called(1);
+      });
+    });
+
+    group('Weekly App Updates', () {
+      test('statusWeeklyAppUpdates can be mocked', () {
+        when(() => mockService.statusWeeklyAppUpdates).thenReturn(true);
+        expect(mockService.statusWeeklyAppUpdates, isTrue);
+      });
+
+      test('enableWeeklyAppUpdates can be called without system changes', () async {
+        when(() => mockService.enableWeeklyAppUpdates()).thenAnswer((_) async => Future.value());
+
+        await mockService.enableWeeklyAppUpdates();
+        verify(() => mockService.enableWeeklyAppUpdates()).called(1);
+      });
+
+      test('disableWeeklyAppUpdates can be called without system changes', () async {
+        when(() => mockService.disableWeeklyAppUpdates()).thenAnswer((_) async => Future.value());
+
+        await mockService.disableWeeklyAppUpdates();
+        verify(() => mockService.disableWeeklyAppUpdates()).called(1);
       });
     });
 

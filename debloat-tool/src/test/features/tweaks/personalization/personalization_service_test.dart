@@ -120,6 +120,10 @@ void main() {
       });
 
       group('Explorer Home', () {
+        test('statusTaskbarAnimations returns a boolean', () {
+          expect(service.statusTaskbarAnimations, isA<bool>());
+        });
+
         test('statusExplorerHome returns a boolean', () {
           expect(service.statusExplorerHome, isA<bool>());
         });
@@ -406,6 +410,25 @@ void main() {
         when(() => mockService.disableExplorerGallery()).thenAnswer((_) async => Future.value());
         await mockService.disableExplorerGallery();
         verify(() => mockService.disableExplorerGallery()).called(1);
+      });
+    });
+
+    group('Taskbar Animations Status', () {
+      test('statusTaskbarAnimations can be mocked', () {
+        when(() => mockService.statusTaskbarAnimations).thenReturn(false);
+        expect(mockService.statusTaskbarAnimations, isFalse);
+      });
+
+      test('enableTaskbarAnimations can be called without system changes', () async {
+        when(() => mockService.enableTaskbarAnimations()).thenAnswer((_) async => Future.value());
+        await mockService.enableTaskbarAnimations();
+        verify(() => mockService.enableTaskbarAnimations()).called(1);
+      });
+
+      test('disableTaskbarAnimations can be called without system changes', () async {
+        when(() => mockService.disableTaskbarAnimations()).thenAnswer((_) async => Future.value());
+        await mockService.disableTaskbarAnimations();
+        verify(() => mockService.disableTaskbarAnimations()).called(1);
       });
     });
 

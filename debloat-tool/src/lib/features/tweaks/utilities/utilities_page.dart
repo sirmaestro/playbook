@@ -24,6 +24,7 @@ class const UtilitiesPage({super.key}) extends ConsumerWidget {
         const _TMMonitoringCard(),
         // const _MPOCard(),
         const _UsageReportingCard(),
+        const _WeeklyAppUpdatesCard(),
       ].withSpacing(5),
     );
   }
@@ -136,6 +137,28 @@ class const _UsageReportingCard() extends ConsumerWidget {
               ? await ref.read(utilitiesServiceProvider).enableUsageReporting()
               : await ref.read(utilitiesServiceProvider).disableUsageReporting();
           ref.invalidate(usageReportingStatusProvider);
+        },
+      ),
+    );
+  }
+}
+
+class const _WeeklyAppUpdatesCard() extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool status = ref.watch(weeklyAppUpdatesStatusProvider);
+
+    return CardHighlight(
+      icon: msicons.FluentIcons.arrow_sync_20_regular,
+      label: t.tweaksUtilitiesWeeklyAppUpdates,
+      description: t.tweaksUtilitiesWeeklyAppUpdatesDescription,
+      action: CardToggleSwitch(
+        value: status,
+        onChanged: (value) async {
+          value
+              ? await ref.read(utilitiesServiceProvider).enableWeeklyAppUpdates()
+              : await ref.read(utilitiesServiceProvider).disableWeeklyAppUpdates();
+          ref.invalidate(weeklyAppUpdatesStatusProvider);
         },
       ),
     );

@@ -44,11 +44,8 @@ REG_TYPES = {"REG_DWORD", "REG_QWORD", "REG_SZ", "REG_EXPAND_SZ", "REG_MULTI_SZ"
 # Files the CI build adds to Executables (git-ignored, so not in src/); `--package` checks that they ship.
 CI_SUPPLIED = {"WinDebloatTool-Setup.exe"}
 # Option names a task uses that playbook.conf does not define, reported as a warning (known, decision pending), not an error.
-KNOWN_UNDEFINED_OPTIONS = {
-    "configure-explorer-taskbar-animations":
-        "explorer.yml: the positive branch can never apply, so only the delete branch of TaskbarAnimations runs. Defining the "
-        "option or removing the dead branch changes behaviour and needs the maintainer's yes",
-}
+# (Empty: `configure-explorer-taskbar-animations` was the only one and is defined now.)
+KNOWN_UNDEFINED_OPTIONS = {}
 ASCII_GLOBS = [("src/Executables", "*.ps1"), ("src/Executables", "*.cmd"), ("tools/vmtest", "*.ps1"), ("tools", "*.ps1")]
 
 errors, warnings = [], []

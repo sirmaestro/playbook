@@ -127,6 +127,25 @@ actions:
     wait: true
     weight: 5
 
+  # === Optional weekly `winget upgrade --all` with a log (backlog item). WEEKLY-UPDATE.ps1 is always staged in
+  # === %ProgramData%\WinDebloat\Weekly Update; the option registers the task for the current user (elevated, so it also
+  # === sees the user-scope apps INSTALL-APPS installed). The task can be switched later with
+  # === `wdtool tweaks utilities weekly-app-updates enable|disable` (or the tool's Utilities page); a re-apply with the
+  # === option unticked does not remove a task the user turned on.
+  - !powerShell:
+    command: '.\WEEKLY-UPDATE.ps1 -Stage'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    weight: 2
+  - !powerShell:
+    command: '.\WEEKLY-UPDATE.ps1 -Register'
+    exeDir: true
+    runas: currentUserElevated
+    wait: true
+    option: "windebloat-weekly-app-updates"
+    weight: 5
+
   # === New accounts: copy the HKCU tweaks above into the Default profile hive (HKU\.DEFAULT is the SYSTEM profile, not the
   # === template). Reads the YAML in this playbook and copies only the values this user's HKCU actually holds.
   - !writeStatus: {status: "Applying settings to the default user profile"}

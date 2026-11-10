@@ -95,6 +95,7 @@ actions:
 
 
   # === Disable Taskbar Animations. (prevents the pop up windows in the taskbar from getting stuck too)
+  # ------> Option `configure-explorer-taskbar-animations` (playbook.conf, unchecked by default); unchecked deletes the value (Windows default).
   - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'TaskbarAnimations', type: REG_DWORD, data: '0', option: 'configure-explorer-taskbar-animations'}
   - !registryValue: {path: 'HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'TaskbarAnimations', type: REG_DWORD, data: '0', option: 'configure-explorer-taskbar-animations'}
   

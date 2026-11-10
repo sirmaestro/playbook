@@ -12,6 +12,11 @@ env:
   FILENAME: 'Revi-PB-${{ github.event.workflow_run.started_at }}.apbx'
 
 jobs:
+  # Static checks (tools/verify_playbook.py); a failure stops the release before anything is built or published.
+  verify:
+    name: Verify playbook source
+    uses: ./.github/workflows/verify.yml
+
   # WinDebloat Tool (debloat-tool/, a GPL-3.0 fork of Revision Tool) is built from this repo and
   # bundled into the playbook; nothing is downloaded from meetrevision.
   build-tool:
@@ -195,7 +200,7 @@ jobs:
           if-no-files-found: error
 
   build:
-    needs: build-tool
+    needs: [build-tool, verify]
     runs-on: windows-latest
     env:
       VERSION: ${{ needs.build-tool.outputs.version }}
@@ -231,6 +236,13 @@ jobs:
       - name: Archive content
         run: |
           7z a -pmalte -mhe=on "Revi-PB-${{ env.VERSION }}.apbx" ./src/*
+
+      # Opens the archive again: file parity with src/, installer present, version stamped, playbook.conf parses.
+      - name: Verify package
+        run: |
+          python -m pip install pyyaml==6.0.2
+          python tools/verify_playbook.py --package "Revi-PB-${{ env.VERSION }}.apbx" --version "${{ env.VERSION }}"
+        shell: pwsh
 
       - name: Generate SHA256
         run: |

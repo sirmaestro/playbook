@@ -150,10 +150,75 @@ def build_plan(config_dir, selected, system_arch="X64", upgrade=False):
                 "ignoreErrors": _truthy(action.get("ignoreErrors", False)),
                 "handleExitCodes": action.get("handleExitCodes"),
                 "skipReason": reason,
+                "fields": ({k: v for k, v in action.items() if not k.startswith("_")}
+                           if action.get("_tag") in STATE_TYPES else None),
             })
 
     walk("main.yml", None)
     return plan
+
+
+# Actions whose result can be read back from a live system (see expected_state).
+STATE_TYPES = ("registryValue", "registryKey", "service", "file")
+
+
+def expected_state(plan):
+    """What the applicable registry, service and file actions leave behind, last writer wins.
+
+    registryValue: add (default) or operation: delete. registryKey: delete (default) or operation: add.
+    A key delete also removes every earlier-expected value below it. service: operation: change sets the
+    Start value (0..4). file: the path is deleted. Entries from actions marked errorAction: Ignore are
+    "soft": they may legitimately not have happened.
+    """
+    state = {}
+
+    def key_of(kind, path, name=""):
+        return (kind, path.lower().rstrip("\\"), str(name).lower())
+
+    def exists_now(path):
+        # A write under a key (re)creates it and every parent, so an earlier "key deleted" no longer holds.
+        parts = path.rstrip("\\").split("\\")
+        for i in range(1, len(parts) + 1):
+            k = key_of("k", "\\".join(parts[:i]))
+            if state.get(k, {}).get("op") == "absent":
+                del state[k]
+
+    for action in plan:
+        if action["skipReason"] or action["type"] not in STATE_TYPES or not action.get("fields"):
+            continue
+        f = action["fields"]
+        soft = str(f.get("errorAction", "")).lower() == "ignore" or _truthy(f.get("ignoreErrors", False))
+        base = {"id": action["id"], "soft": soft}
+        tag = action["type"]
+        if tag == "registryValue":
+            path = str(f["path"]).rstrip("\\")
+            name = str(f.get("value", ""))
+            if str(f.get("operation", "add")).lower() == "delete":
+                entry = dict(base, kind="value", path=path, name=name, op="absent")
+            else:
+                entry = dict(base, kind="value", path=path, name=name, op="present",
+                             rtype=str(f.get("type", "REG_SZ")), data=str(f.get("data", "")))
+            if entry["op"] == "present":
+                exists_now(path)
+            state[key_of("v", path, name)] = entry
+        elif tag == "registryKey":
+            path = str(f["path"]).rstrip("\\")
+            if str(f.get("operation", "delete")).lower() == "add":
+                exists_now(path)
+                state[key_of("k", path)] = dict(base, kind="key", path=path, op="present")
+            else:
+                prefix = path.lower() + "\\"
+                for k, e in list(state.items()):
+                    if k[0] in ("v", "k") and (k[1] == path.lower() or k[1].startswith(prefix)):
+                        del state[k]
+                state[key_of("k", path)] = dict(base, kind="key", path=path, op="absent")
+        elif tag == "service":
+            if str(f.get("operation", "change")).lower() == "change" and "startup" in f:
+                state[key_of("s", str(f["name"]))] = dict(base, kind="service", name=str(f["name"]), op="start",
+                                                          data=str(f["startup"]))
+        elif tag == "file":
+            state[key_of("f", str(f["path"]))] = dict(base, kind="file", path=str(f["path"]), op="absent")
+    return list(state.values())
 
 
 # --------------------------------------------------------------------------- logs
@@ -368,7 +433,7 @@ def summarize(plan, logs_dir, cli_stdout=None):
 def main(argv):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
-    for name in ("plan", "summarize"):
+    for name in ("plan", "summarize", "expected"):
         p = sub.add_parser(name)
         p.add_argument("--config", required=True)
         p.add_argument("--options-file", required=True)
@@ -383,7 +448,12 @@ def main(argv):
     with open(args.options_file, "r", encoding="utf-8-sig") as handle:
         selected = {line.strip().lower() for line in handle if line.strip()}
     plan = build_plan(args.config, selected, args.arch, args.upgrade)
-    result = plan if args.cmd == "plan" else summarize(plan, args.logs, args.cli_stdout)
+    if args.cmd == "plan":
+        result = plan
+    elif args.cmd == "expected":
+        result = {"entries": expected_state(plan)}
+    else:
+        result = summarize(plan, args.logs, args.cli_stdout)
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(result, handle, indent=2, default=str)
     return 0

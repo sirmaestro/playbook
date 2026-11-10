@@ -1,0 +1,30 @@
+{
+  "_doc": "Known differences between what the playbook's registry/service/file actions should leave and what the live guest has (tools/vmtest.ps1, Invoke-VmtLiveStateCheck). 'like' is a PowerShell -like pattern over 'kind|path|name' (case-insensitive). status 'explained' = cause verified; 'open' = real difference whose cause is not established (kept visible in every run, does not fail it). Anything not listed here fails the run.",
+  "entries": [
+    {
+      "like": "value|HKCU\\Software\\Classes\\.*|",
+      "status": "explained",
+      "reason": "classic-photo-viewer.yml sets these extensions to PhotoViewer.FileAssoc.Tiff early; final.yml runs FILEASSOC.cmd, which sets the per-format PhotoViewer ProgIds (Jpeg, Png, Bitmap, JFIF, Wdp), and the ImageGlass default-app step then takes the rest. Verified: first boot shows Jpeg/Png/Bitmap/JFIF/Wdp, the end state shows ImageGlass.AssocFile.*"
+    },
+    {
+      "like": "value|*\\WindowsUpdate\\Services\\Pending\\*|RegisterWithAU",
+      "status": "open",
+      "reason": "final.yml#5 sets RegisterWithAU on a Pending service registration (GUID key); at the end the key is gone. Probably Windows Update consuming the registration; not verified"
+    },
+    {
+      "like": "value|HKCU\\Control Panel\\Accessibility\\HighContrast|Flags",
+      "status": "open",
+      "reason": "playbook sets 0 (control-panel.yml#61); the guest has Windows' default 126 at first boot. Probably Windows repopulating the HKCU key for the profile; not verified"
+    },
+    {
+      "like": "value|HKCU\\System\\GameConfigStore|GameDVR_Enabled",
+      "status": "open",
+      "reason": "playbook sets 0 (win-settings.yml#78); the guest has 1 at first boot. Probably Windows recreating GameConfigStore with defaults at logon; not verified. Check the HKLM AllowGameDVR policy still holds"
+    },
+    {
+      "like": "value|HKLM\\SYSTEM\\ControlSet001\\Control\\WMI\\Autologger\\*|Start",
+      "status": "open",
+      "reason": "telemetry.yml#58-60: AME logs adding Start=0 for Diagtrack-Listener, SQMLogger and SetupPlatformTel, but at first boot Diagtrack-Listener is 1 and the other two have no Start value. Cause not established (a servicing package at the first boot, or Windows rewriting the autologger); the DiagTrack service itself is absent"
+    }
+  ]
+}

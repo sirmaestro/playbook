@@ -1,23 +1,23 @@
 <#
-    Guest side of tools\vmtest.ps1. Runs inside the VM under Windows PowerShell 5.1, launched by
-    `VBoxManage guestcontrol run` (a medium-integrity, UAC-filtered token).
+    Guest side of tools\vmtest.ps1. Runs inside the VM under Windows PowerShell 5.1, launched over
+    PowerShell Direct (Invoke-Command -VMName), whose token is already High integrity.
 
-    Every mode except Status needs admin, so the medium-token invocation re-launches itself with
-    `Start-Process -Verb RunAs` (silent when ConsentPromptBehaviorAdmin=0, i.e. the UAC slider is at
-    "Never notify"; a filtered token has no other prompt-free way up) and relays the elevated
-    result. Jobs (the AME apply, the optional revert) run from a scheduled task this script
+    Every mode except Status needs admin. If it is ever started with a medium-integrity (UAC-filtered)
+    token instead, it re-launches itself with `Start-Process -Verb RunAs` (silent when
+    ConsentPromptBehaviorAdmin=0, i.e. the UAC slider is at "Never notify"; a filtered token has no
+    other prompt-free way up) and relays the elevated result. Jobs (the AME apply, the optional revert) run from a scheduled task this script
     registers itself: RunLevel Highest, Interactive logon as the signed-in user, so AME's
     `runas: currentUserElevated` steps and HKCU land in the real desktop session.
 
     Protocol: results are printed as JSON between VMTEST_JSON_BEGIN/END, then VMTEST_EXIT=<n>.
-    guestcontrol's own exit code is not the guest exit code, so the host only trusts these lines.
+    The transport's own exit code is not the guest exit code, so the host only trusts these lines.
 
     Keep this file ASCII-only (PS 5.1 reads BOM-less files as ANSI), avoid aliases, and do not use
     $Matches (use [regex]::Match results instead).
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Prepare', 'Start', 'Status', 'Stop', 'Collect', 'Probe', 'SyncApps')]
+    [ValidateSet('Prepare', 'Start', 'Status', 'Stop', 'Collect', 'Probe', 'SyncApps', 'EndState')]
     [string]$Mode,
     [ValidateSet('apply', 'revert', 'apps')]
     [string]$Job = 'apply',
@@ -370,6 +370,43 @@ try {
             })
         }
 
+        'EndState' {
+            # Did the servicing work queued by the apply (the Revision CBS removal packages, installed with
+            # -NoRestart) actually commit at the first boot? The tweak counts cannot tell: a rolled-back
+            # commit ("Something didn't go as planned, undoing changes") leaves every tweak looking applied.
+            $boot = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+            $packages = @(Get-WindowsPackage -Online | Where-Object { $_.PackageName -like 'Revision-ReviOS-*' } | ForEach-Object {
+                [ordered]@{ name = ($_.PackageName -replace '~.*$', ''); state = [string]$_.PackageState }
+            })
+            # CBS.log lines are local time, like LastBootUpTime. One minute of slack for the clock tick at boot.
+            $rollbackLines = @()
+            $cbsLog = Join-Path $env:SystemRoot 'Logs\CBS\CBS.log'
+            if (Test-Path -LiteralPath $cbsLog) {
+                foreach ($hit in @(Select-String -LiteralPath $cbsLog -Pattern 'CBS Startup: Failed to process advanced operation queue|CBS_E_INSTALLERS_FAILED')) {
+                    $when = [datetime]::MinValue
+                    if ($hit.Line.Length -ge 19 -and [datetime]::TryParseExact($hit.Line.Substring(0, 19), 'yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$when) -and $when -ge $boot.AddMinutes(-1)) {
+                        $rollbackLines += (($hit.Line -replace '\s+', ' ').Trim())
+                    }
+                }
+            }
+            $pendingKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'
+            $pending = if (Test-Path -LiteralPath $pendingKey) { @(Get-ChildItem -LiteralPath $pendingKey).Count } else { 0 }
+            $services = [ordered]@{}
+            foreach ($svc in 'WinDefend', 'Sense', 'DiagTrack') {
+                $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
+                $services[$svc] = if ($s) { "$($s.Status)/$($s.StartType)" } else { 'absent' }
+            }
+            Write-VmtResult -ExitCode 0 -Result ([ordered]@{
+                bootTime       = $boot.ToUniversalTime().ToString('o')
+                packages       = $packages
+                rolledBack     = ($rollbackLines.Count -gt 0)
+                rollbackLines  = @($rollbackLines | Select-Object -First 3)
+                pendingPackages = $pending
+                services       = $services
+                msMpEngPresent = (Test-Path -LiteralPath (Join-Path $env:ProgramFiles 'Windows Defender\MsMpEng.exe'))
+            })
+        }
+
         'Stop' {
             $paths = Get-VmtJobPaths $Job
             Stop-ScheduledTask -TaskName $paths.Task -ErrorAction SilentlyContinue
@@ -403,6 +440,14 @@ try {
             $counts['jobs'] = Copy-VmtTree -Source $jobsDir -Destination (Join-Path $collect 'jobs') -Errors $errors
             $counts['state'] = Copy-VmtTree -Source $stateDir -Destination (Join-Path $collect 'state') -Errors $errors
             $counts['ProgramData-AME-Logs'] = Copy-VmtTree -Source "$env:ProgramData\AME\Logs" -Destination (Join-Path $collect 'ProgramData-AME-Logs') -Errors $errors
+            # POSTCLEAN.ps1 (final.yml) logs every pass, including the ones from the scheduled task, to Post-Clean\postclean.log;
+            # DEFAULTUSER.ps1 logs the Default-profile copy to default-user.log.
+            $counts['Post-Clean'] = Copy-VmtTree -Source "$env:ProgramData\WinDebloat\Post-Clean" -Destination (Join-Path $collect 'WinDebloat\Post-Clean') -Errors $errors
+            $dulog = "$env:ProgramData\WinDebloat\default-user.log"
+            if (Test-Path -LiteralPath $dulog) {
+                try { Copy-VmtFileShared -Source $dulog -Destination (Join-Path $collect 'WinDebloat\default-user.log'); $counts['default-user.log'] = 1 }
+                catch { [void]$errors.Add("${dulog}: $($_.Exception.Message)") }
+            }
             # INSTALL-APPS.ps1 writes its transcript next to itself.
             $counts['apps-transcripts'] = 0
             foreach ($log in @(Get-ChildItem -LiteralPath $appsDir -Filter 'install-apps-*.log' -File -ErrorAction SilentlyContinue)) {

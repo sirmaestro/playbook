@@ -80,6 +80,22 @@ jobs:
           pub-cache: true
           pub-cache-key: 'flutter-pub-${{ runner.os }}-${{ hashFiles(''debloat-tool/src/pubspec.lock'') }}'
 
+      # Resolve once, with retries. On a fresh checkout the first `dart run` does an implicit pub get,
+      # and a transient pub.dev network error there crashes pub itself ("Bad state: Attempting to send
+      # request on closed client") instead of retrying cleanly, which failed run 42799102119 in
+      # "Generate Rust bridge code". Doing it here keeps every later `dart run` offline.
+      - name: Resolve Dart dependencies
+        if: steps.reuse.outputs.hit != 'true'
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 4; $i++) {
+            flutter pub get
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "::warning::flutter pub get failed (attempt $i of 4), retrying"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          exit 1
+
       # FRB output cache ──────────────────────────────────────────────
       - name: Restore FRB output cache
         if: steps.reuse.outputs.hit != 'true'

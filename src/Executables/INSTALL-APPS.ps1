@@ -11,11 +11,17 @@
 
     Apps not packaged in winget from their official source go in an optional top-level
     "GitHubReleases" list in the same group file (winget import ignores it):
-      { "Name": "mpv", "Repo": "zhongfly/mpv-winbuild", "AssetPattern": "^mpv-x86_64-\\d{8}-git-[0-9a-f]+\\.7z$",
+      { "Name": "mpv", "Repo": "shinchiro/mpv-winbuild-cmake", "AssetPattern": "^mpv-x86_64-v3-\\d{8}-git-[0-9a-f]+\\.7z$",
         "AddToPath": true, "PostInstall": { "File": "mpv.com", "Arguments": "--register" } }
     The latest release's .zip or .7z asset whose name ends with "Asset" (or matches the regex
     "AssetPattern") is checked against the SHA-256 digest GitHub publishes, extracted to
     Program Files\<Name>, and PostInstall runs from there.
+
+    An optional top-level "WindowsFeatures" list enables Windows optional features (Hyper-V, the
+    Virtual Machine Platform) before the group's packages install:
+      { "Name": "Microsoft-Hyper-V-All" }
+    A feature that this edition does not have (Hyper-V on Home) is skipped. A newly enabled one is
+    listed under "Reboot to finish" in the summary, because it needs a restart before it works.
 
     After a group installs, its optional top-level "Associations" list makes those apps the
     signed-in user's defaults: the class defaults through the playbook's assoc.ps1, then, once all
@@ -173,9 +179,27 @@ function Format-ExitCode([int]$Code) {
     return $hex
 }
 
+# api.github.com answers 502/503/504 now and then (seen from a test VM, twice in a row, 2026-11-08), so a
+# lookup is retried a few times with a growing pause before it is allowed to fail the install.
+function Get-GitHubRelease([string]$Repo) {
+    $delays = 3, 8, 20
+    for ($attempt = 0; ; $attempt++) {
+        try {
+            return Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" `
+                -Headers @{ 'User-Agent' = 'INSTALL-APPS'; 'Accept' = 'application/vnd.github+json' } -UseBasicParsing
+        } catch {
+            $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+            # 4xx other than rate limiting (403/429) will not change on a retry.
+            $transient = $status -eq 0 -or $status -ge 500 -or $status -in 403, 429, 408
+            if (-not $transient -or $attempt -ge $delays.Count) { throw }
+            Write-Host "   GitHub API lookup for $Repo failed ($($_.Exception.Message.Trim())); retrying in $($delays[$attempt]) s" -ForegroundColor Yellow
+            Start-Sleep -Seconds $delays[$attempt]
+        }
+    }
+}
+
 function Get-GitHubAsset($Package) {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$($Package.Repo)/releases/latest" `
-        -Headers @{ 'User-Agent' = 'INSTALL-APPS'; 'Accept' = 'application/vnd.github+json' } -UseBasicParsing
+    $release = Get-GitHubRelease $Package.Repo
     if ($Package.AssetPattern) {
         $asset = @($release.assets | Where-Object { $_.name -match $Package.AssetPattern })
         $wanted = "matching '$($Package.AssetPattern)'"
@@ -189,8 +213,25 @@ function Get-GitHubAsset($Package) {
         Tag    = $release.tag_name
         Name   = $asset[0].name
         Url    = $asset[0].browser_download_url
+        ApiUrl = $asset[0].url
         Sha256 = $asset[0].digest.Substring(7)
     }
+}
+
+# Downloads an asset. github.com/<repo>/releases/download/... is served by a different GitHub edge than
+# api.github.com and has returned 504 for every asset while the API kept working, so on any failure the
+# same file is fetched from the API asset endpoint (Accept: application/octet-stream redirects to it).
+function Get-GitHubFile($Asset, [string]$OutFile) {
+    $progress = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'   # the progress bar slows 5.1 downloads
+    try {
+        try { Invoke-WebRequest -Uri $Asset.Url -OutFile $OutFile -UseBasicParsing; return }
+        catch {
+            if (-not $Asset.ApiUrl) { throw }
+            Write-Host "   Download failed ($($_.Exception.Message.Trim())); retrying through the GitHub API" -ForegroundColor Yellow
+        }
+        Invoke-WebRequest -Uri $Asset.ApiUrl -OutFile $OutFile -UseBasicParsing `
+            -Headers @{ 'User-Agent' = 'INSTALL-APPS'; 'Accept' = 'application/octet-stream' }
+    } finally { $ProgressPreference = $progress }
 }
 
 # Downloads a Get-GitHubAsset result into Dir and checks it against the release's SHA-256 digest.
@@ -206,9 +247,7 @@ function Save-GitHubAsset($Asset, [string]$Dir) {
         Copy-Item -LiteralPath $cached -Destination $file
     } else {
         Write-Host "   Downloading $($Asset.Name) ($($Asset.Tag))"
-        # Windows PowerShell's progress bar slows Invoke-WebRequest downloads many times over.
-        $progress = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
-        try { Invoke-WebRequest -Uri $Asset.Url -OutFile $file -UseBasicParsing } finally { $ProgressPreference = $progress }
+        Get-GitHubFile $Asset $file
     }
     $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($hash -ne $Asset.Sha256) { throw "SHA-256 mismatch for $($Asset.Name): got $hash, release lists $($Asset.Sha256)" }
@@ -440,6 +479,10 @@ if ($DryRun) {
         else { Write-Host "   MISSING  $($p.Id) [$($p.Group)/$($p.Source)] $(Format-ExitCode $LASTEXITCODE)" -ForegroundColor Yellow; $missing += $p.Id }
     }
     Write-Host "`n$($packages.Count - $missing.Count) found, $($missing.Count) missing."
+    foreach ($g in $checkGroups) {
+        $features = @((Get-Content -LiteralPath (Join-Path $AppsDir "$g.json") -Raw | ConvertFrom-Json).WindowsFeatures)
+        if ($features.Count) { Write-Host "Windows features in $g (checked when installing, needs admin): $($features.Name -join ', ')" }
+    }
     if ($logFile) { Stop-Transcript | Out-Null }
     return
 }
@@ -714,6 +757,33 @@ function Set-GroupAppSettings([string]$Name) {
     }
 }
 
+$optionalFeatures = $null
+function Install-GroupFeatures([string]$Name) {
+    $list = Get-Content -LiteralPath (Join-Path $AppsDir "$Name.json") -Raw | ConvertFrom-Json
+    if (-not $list.WindowsFeatures) { return }
+    Write-Step "Enabling Windows features: $Name"
+    foreach ($f in $list.WindowsFeatures) {
+        $id = "feature:$($f.Name)"
+        try {
+            # One query for every feature, so a name this edition lacks is told apart from a real error.
+            if (-not $script:optionalFeatures) {
+                $script:optionalFeatures = @{}
+                foreach ($x in Get-WindowsOptionalFeature -Online) { $script:optionalFeatures[$x.FeatureName] = [string]$x.State }
+            }
+            $state = $script:optionalFeatures[$f.Name]
+            if (-not $state) { Write-Host "   $($f.Name) is not available on this edition of Windows; skipping"; continue }
+            if ($state -eq 'Enabled') { Write-Host "   $($f.Name) is already enabled"; $script:present += $id; continue }
+            if ($state -eq 'EnablePending') { Write-Host "   $($f.Name) is enabled once Windows restarts"; $script:reboot += $id; continue }
+            Write-Host "   Enabling $($f.Name)..."
+            $result = Enable-WindowsOptionalFeature -Online -FeatureName $f.Name -All -NoRestart
+            if ($result.RestartNeeded) { $script:reboot += $id } else { $script:installed += $id }
+        } catch {
+            $script:failed[$id] = $_.Exception.Message
+            Write-Host "   failed: $($script:failed[$id])" -ForegroundColor Yellow
+        }
+    }
+}
+
 function Install-Group([string]$Name) {
     $packages = @(Get-GroupPackages $Name)
     $queue = $packages
@@ -755,12 +825,13 @@ $shortcutsBefore = Get-DesktopShortcuts
 if ($Group.Count) {
     $selected = Resolve-Groups $Group
     foreach ($g in $selected) { $null = @(Get-GroupPackages $g) }   # fail on a typo before installing anything
-    foreach ($g in $selected) { Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
+    foreach ($g in $selected) { Install-GroupFeatures $g; Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
 } else {
+    Install-GroupFeatures 'base'
     Install-Group 'base'
     Set-GroupAppSettings 'base'
     Set-GroupAssociations 'base'
-    foreach ($g in Read-ExtraGroups) { Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
+    foreach ($g in Read-ExtraGroups) { Install-GroupFeatures $g; Install-Group $g; Set-GroupAppSettings $g; Set-GroupAssociations $g }
 }
 
 $shortcutsRemoved = @()

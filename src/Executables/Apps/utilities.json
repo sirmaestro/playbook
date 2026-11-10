@@ -15,6 +15,9 @@
         { "PackageIdentifier": "qarmin.czkawka.gui" },
         { "PackageIdentifier": "TechPowerUp.GPU-Z" },
         { "PackageIdentifier": "Gyan.FFmpeg.Essentials" },
+        { "PackageIdentifier": "JohnMacFarlane.Pandoc" },
+        { "PackageIdentifier": "oschwartz10612.Poppler" },
+        { "PackageIdentifier": "ImageMagick.ImageMagick" },
         { "PackageIdentifier": "AprilNEA.OpenLogi" },
         { "PackageIdentifier": "Microsoft.Sysinternals.Autoruns" },
         { "PackageIdentifier": "Microsoft.Sysinternals.ProcessExplorer" }

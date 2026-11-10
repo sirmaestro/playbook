@@ -4,30 +4,17 @@ function Delete-UserChoiceKey {
     [String]
     $Key
   )
-  $code = @'
-  using System;
-  using System.Runtime.InteropServices;
-  using Microsoft.Win32;
-  
-  namespace Registry {
-    public class Utils {
-      [DllImport("advapi32.dll", SetLastError = true)]
-      private static extern int RegOpenKeyEx(UIntPtr hKey, string subKey, int ulOptions, int samDesired, out UIntPtr hkResult);
-  
-      [DllImport("advapi32.dll", SetLastError=true, CharSet = CharSet.Unicode)]
-      private static extern uint RegDeleteKey(UIntPtr hKey, string subKey);
-  
-      public static void DeleteKey(string key) {
-        UIntPtr hKey = UIntPtr.Zero;
-        RegOpenKeyEx((UIntPtr)0x80000003u, key, 0, 0x20019, out hKey);
-        RegDeleteKey((UIntPtr)0x80000003u, key);
-      }
-     }
-   }
-'@
-  Add-Type -TypeDefinition $code
-
-  [Registry.Utils]::DeleteKey($Key)
+  # RegDeleteKey on HKEY_USERS (0x80000003), as the C# helper this replaces did. The P/Invoke is defined in
+  # memory (Reflection.Emit) instead of Add-Type: Add-Type starts csc.exe, which sat blocked in IPC calls for
+  # about 30 s during the playbook run (measured on the Hyper-V test VM) and nothing else was waiting on it.
+  # The helper also opened the key first (RegOpenKeyEx) but never used the handle; that call is dropped.
+  if (-not ('Registry.Utils' -as [type])) {
+    $ab = [AppDomain]::CurrentDomain.DefineDynamicAssembly((New-Object Reflection.AssemblyName 'RegistryUtilsDyn'), [Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $tb = $ab.DefineDynamicModule('RegistryUtilsDyn').DefineType('Registry.Utils', 'Public,Class')
+    $null = $tb.DefinePInvokeMethod('RegDeleteKey', 'advapi32.dll', 'Public,Static,PinvokeImpl', 'Standard', [uint32], @([UIntPtr], [string]), 'Winapi', 'Unicode')
+    $null = $tb.CreateType()
+  }
+  [void][Registry.Utils]::RegDeleteKey([UIntPtr]::new([uint64]2147483651), $Key)
 }
 
 $Hive = $args[1]

@@ -7,14 +7,25 @@
         { "PackageIdentifier": "TheDocumentFoundation.LibreOffice" },
         { "PackageIdentifier": "Nikse.SubtitleEdit" },
         { "PackageIdentifier": "StirlingTools.StirlingPDF" },
-        { "PackageIdentifier": "DuongDieuPhap.ImageGlass" },
-        { "PackageIdentifier": "shinchiro.mpv" }
+        { "PackageIdentifier": "DuongDieuPhap.ImageGlass" }
       ],
       "SourceDetails": {
         "Argument": "https://cdn.winget.microsoft.com/cache",
         "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
         "Name": "winget",
         "Type": "Microsoft.PreIndexed.Package"
+      }
+    }
+  ],
+  "GitHubReleases": [
+    {
+      "Name": "mpv",
+      "Repo": "shinchiro/mpv-winbuild-cmake",
+      "AssetPattern": "^mpv-x86_64-v3-\\d{8}-git-[0-9a-f]+\\.7z$",
+      "AddToPath": true,
+      "PostInstall": {
+        "File": "mpv.com",
+        "Arguments": "--register"
       }
     }
   ],

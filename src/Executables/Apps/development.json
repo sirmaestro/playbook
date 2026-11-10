@@ -8,6 +8,13 @@
         { "PackageIdentifier": "Microsoft.VisualStudioCode" },
         { "PackageIdentifier": "Fork.Fork" },
         { "PackageIdentifier": "Kitware.CMake" },
+        { "PackageIdentifier": "Ninja-build.Ninja" },
+        { "PackageIdentifier": "Ccache.Ccache" },
+        { "PackageIdentifier": "Casey.Just" },
+        { "PackageIdentifier": "GitHub.cli" },
+        { "PackageIdentifier": "BurntSushi.ripgrep.MSVC" },
+        { "PackageIdentifier": "jqlang.jq" },
+        { "PackageIdentifier": "astral-sh.uv" },
         { "PackageIdentifier": "OpenJS.NodeJS.LTS" },
         { "PackageIdentifier": "EclipseAdoptium.Temurin.25.JDK" },
         {
@@ -16,7 +23,6 @@
         },
         { "PackageIdentifier": "Microsoft.DotNet.SDK.10" },
         { "PackageIdentifier": "Microsoft.WSL" },
-        { "PackageIdentifier": "Oracle.VirtualBox" },
         { "PackageIdentifier": "nabdev.iloader" },
         { "PackageIdentifier": "Python.PythonInstallManager" },
         { "PackageIdentifier": "RedHat.Podman-Desktop" }
@@ -28,6 +34,10 @@
         "Type": "Microsoft.PreIndexed.Package"
       }
     }
+  ],
+  "WindowsFeatures": [
+    { "Name": "Microsoft-Hyper-V-All" },
+    { "Name": "VirtualMachinePlatform" }
   ],
   "Associations": [
     {
